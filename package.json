@@ -1,5 +1,5 @@
 {
-  "name": "simple_streams",
+  "name": "@slaus/simple_streams",
   "version": "1.0.0",
   "description": "Another reactive streams lib resembling Flyd, Bacon, RxJS with topological sort to solve \"diamond\" problems.",
   "main": "index.js",
@@ -15,7 +15,7 @@
     "streams",
     "reactive"
   ],
-  "author": "Slaus",
+  "author": "SlavMFM@gmail.com",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/SlavMFM/simple_streams/issues"
