@@ -1,23 +1,24 @@
+import Edge from "./edge";
 
 export default class Propagating
 {
-    constructor()
-    {
-        //last propagated stream value:
-        this.value = undefined;
-        
-        this.children = [];
-        this.parents = [];
-    }
+    /** last propagated stream value */
+    value : any = undefined
+    children : Edge[] = []
+    parents : Edge[] = []
     
     destructor()
     {
-        if ( this.children ) for ( const child of this.children ) child.destructor( this, undefined );
+        if ( this.children )
+            for ( const child of this.children )
+                child.destructor( this, undefined );
         //can't just delete children here because pend() relies on it, so moving the processing load here because this operation is suppoed to occur much less frequently:
         //delete this.children;
         this.children.length = 0
         
-        if ( this.parents ) for ( const parent of this.parents ) parent.destructor( undefined, this );
+        if ( this.parents )
+            for ( const parent of this.parents )
+                parent.destructor( undefined, this );
         //... the same:
         //delete this.parents;
         this.parents.length = 0
@@ -26,8 +27,10 @@ export default class Propagating
     propagate( v )
     {
         this.value = v;
-        if ( pend( this ) ) return;
-        if ( propagating ) return;
+        if ( pend( this ) )
+            return;
+        if ( propagating )
+            return;
         propagating = true;
         while ( S.length > 0 )
         {
@@ -38,9 +41,11 @@ export default class Propagating
                 for ( const childEdge of node.children )
                 {
                     //if parent does not propagate to child (dependence from bottom to top only):
-                    if ( childEdge.down ) continue;
+                    if ( childEdge.down )
+                        continue;
                     
-                    if ( resolved( childEdge.child ) ) continue;
+                    if ( resolved( childEdge.child ) )
+                        continue;
                     
                     //if all the parents was already resolved and so this one is independent:
                     if ( childEdge.child.pending( childEdge ) )
@@ -50,7 +55,8 @@ export default class Propagating
                     }
                     any = childEdge;
                 }
-                if ( pending ) break;
+                if ( pending )
+                    break;
             }
             
             const resolving = pending || any;
@@ -74,7 +80,8 @@ export default class Propagating
             
             const further = apply( resolving );
             
-            if ( further ) pend( resolving.child );
+            if ( further )
+                pend( resolving.child );
         }
         propagating = false;
         L = [];
@@ -85,8 +92,10 @@ export default class Propagating
     {
         for ( const childEdge of this.children )
         {
-            if ( childEdge.down ) continue;
-            if ( ! resolved( childEdge.child ) ) return false;
+            if ( childEdge.down )
+                continue;
+            if ( ! resolved( childEdge.child ) )
+                return false;
         }
         return true;
     }
@@ -97,9 +106,11 @@ export default class Propagating
         for ( const parentEdge of this.parents )
         {
             //design flaw: "to" operators clump the target stream and force normal propagation coarse to wait for all other parents (which are "to") to resolve which is unneeded:
-            if ( parentEdge !== fromEdge && parentEdge.operator.name === "to" ) continue;
+            if ( parentEdge !== fromEdge && parentEdge.operator.name === "to" )
+                continue;
             
-            if ( ! resolved( parentEdge.parent ) ) return false;
+            if ( ! resolved( parentEdge.parent ) )
+                return false;
         }
         return true;
     }
@@ -127,23 +138,28 @@ function apply( edge )
 }
 
 /** Add node to the propagation course. Read it's children if needed (recursive propagation).*/
-function pend( node )
+function pend( node : Propagating )
 {
-    if ( node.children.length <= 0 ) return true;
+    if ( node.children.length <= 0 )
+        return true;
     
-    if ( S.indexOf( node ) < 0 ) S.push( node );
+    if ( S.indexOf( node ) < 0 )
+        S.push( node );
     
     //children must be updated again:
     for ( const childEdge of node.children )
     {
         //if parent does not propagate to child (dependence from bottom to top only):
-        if ( childEdge.down ) continue;
+        if ( childEdge.down )
+            continue;
         
         const i = L.indexOf( childEdge.child );
-        if ( i >= 0 ) L.splice( i, 1 );
+        if ( i >= 0 )
+            L.splice( i, 1 );
     }
     
-    if ( L.indexOf( node ) < 0 ) L.push( node );
+    if ( L.indexOf( node ) < 0 )
+        L.push( node );
     return false;
 }
 

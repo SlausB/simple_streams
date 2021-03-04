@@ -1,5 +1,7 @@
 
 import Propagating from "./propagating";
+import Edge from './edge'
+import Space from './space'
 
 import With    from "./operators/with";
 import Any     from "./operators/any";
@@ -16,7 +18,11 @@ import Do      from "./operators/do"
 
 export default class Stream extends Propagating
 {
-    constructor( name, description = '' )
+    _name : string
+    _description : string
+    children : Edge[] = []
+
+    constructor( name : string, description = '' )
     {
         super();
         
@@ -32,7 +38,7 @@ export default class Stream extends Propagating
         super.destructor();
     }
     
-    description(description) {
+    description( description : string ) {
         if (!description) {
             return this._description;
         }
@@ -42,7 +48,7 @@ export default class Stream extends Propagating
     }
     desc() { return this.description.apply( this, arguments ); }
     
-    name( space, name )
+    name( space : Space, name : string )
     {
         //cannot just replace the name of current stream because there already might exist a stream with such name, so just redirecting:
         const s = space.s( name )
@@ -54,99 +60,101 @@ export default class Stream extends Propagating
     {
         const r = new Stream( "altered_" + this._name );
         
-        for ( const child of this.children ) child.parent = r;
+        for ( const child of this.children )
+            child.parent = r;
         r.children = this.children;
         this.children = [];
         
         return r;
     }
     
-    next( v ) { this.propagate( v ); return this; };
+    next( v : any ) { this.propagate( v ); return this; };
     
     log()
     {
-        this.on( v => console.log( this._name, ":", v ) );
+        this.on( ( v : any ) => console.log( this._name, ":", v ) );
         return this;
     }
     
-    with()
+    with( ... args : any[] )
     {
-        return With( this, ... arguments );
+        return With( this, ... args );
     }
     withLatestFrom() { return this.with.apply( this, arguments ); }
     
     /** When any of streams update (both this and specified).*/
-    any()
+    any( ... args : any[] )
     {
-        return Any( this, ... arguments );
+        return Any( this, ... args );
     }
-    combineLatest() { return this.any.apply( this, arguments ); }
-    static any()
+    combineLatest( ... args : any[] ) { return this.any.apply( this, args ); }
+    static any( ... args : any[] )
     {
-        return Any( ... arguments );
+        return Any( ... args );
     }
-    static combineLatest() { return Stream.any.apply( null, arguments ); }
+    static combineLatest( ... args : any[] ) { return Stream.any.apply( null, args ); }
     
-    merge()
+    merge( ... args : any[] )
     {
-        return Merge( this, ... arguments );
+        return Merge( this, ... args );
     }
-    static merge()
+    static merge( ... args : any[] )
     {
-        return Merge( ... arguments );
-    }
-    
-    filter()
-    {
-        return Filter( this, ... arguments );
+        return Merge( ... args );
     }
     
-    take()
+    filter( ... args : any[] )
     {
-        return Take( this, ... arguments );
+        return Filter( this, ... args );
     }
     
-    map()
+    take( ... args : any[] )
     {
-        return Map( this, ... arguments );
+        return Take( this, ... args );
+    }
+    
+    map( ... args : any[] )
+    {
+        return Map( this, ... args );
     }
     
     /** Subscribe. Any calls to next() here won't obey to atomic updates rules.*/
-    on()
+    on( ... args : any[] )
     {
-        return On( this, ... arguments );
+        return On( this, ... args );
     }
-    subscribe( t )
+    subscribe( t : any )
     {
-        if ( t instanceof Stream ) return this.to( t );
+        if ( t instanceof Stream )
+            return this.to( t );
         return this.on( t );
     }
     
-    do()
+    do( ... args : any[] )
     {
-        return Do( this, ... arguments )
+        return Do( this, ... args )
     }
     
-    delay()
+    delay( ... args : any[] )
     {
-        return Delay( this, ... arguments );
+        return Delay( this, ... args );
     }
     
-    pair()
+    pair( ... args : any[] )
     {
-        return Pair( this, ... arguments );
+        return Pair( this, ... args );
     }
-    pairwise() { return this.pair.apply( this, arguments ); }
+    pairwise( ... args : any[] ) { return this.pair.apply( this, args ); }
     
-    changed()
+    changed( ... args : any[] )
     {
-        return Changed( this, ... arguments );
+        return Changed( this, ... args );
     }
     distinctUntilChanged() { return this.changed.apply( this, arguments ); };
     
-    to()
+    to( ... args : any[] )
     {
-        return To( this, ... arguments );
+        return To( this, ... args );
     }
 }
 

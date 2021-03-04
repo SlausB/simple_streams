@@ -2,15 +2,13 @@
 import Stream from "../stream";
 import Edge from "../edge";
 import Args from "../args";
+import Operator from '../operator'
 
-export default function()
+export default function( ... params : any[] )
 {
-    const args = Args( "to", arguments, { minTargets : 1 } );
+    const args = Args( "to", params, { minTargets : 1 } );
     
-    const operator = {
-        apply,
-        name : "to"
-    };
+    const operator = new Operator( apply, 'to' )
     
     for ( const t of args.targets )
     {

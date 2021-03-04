@@ -2,14 +2,13 @@
 import Stream from "../stream";
 import Edge from "../edge";
 import Args from "../args";
+import Operator from "../operator";
 
-export default function()
+export default function( ... params : any[] )
 {
-    const args = Args( "merge", arguments, { minTargets : 1 } );
+    const args = Args( "merge", params, { minTargets : 1 } );
     
-    const operator = {
-        apply
-    };
+    const operator = new Operator( apply, 'merge' )
     
     const r = new Stream( args.source._name + ".merge" );
     r.parents = [];
@@ -21,11 +20,12 @@ export default function()
         );
     };
     glue( args.source );
-    for ( const t of args.targets ) glue( t );
+    for ( const t of args.targets )
+        glue( t );
     return r;
 }
 
-function apply( edge )
+function apply( edge : Edge )
 {
     edge.child.value = edge.parent.value;
     return true;

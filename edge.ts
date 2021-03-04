@@ -1,16 +1,25 @@
 
+import Operator from './operator'
+import Stream from './stream'
+
 /** That's what any operator creates besides spawning another stream. Connection between two streams where "parent" is the one whose method was called to make an operator (and any parameters) and "child" is the spawned stream.
 @param params depends on operator. Mostly just a function.
 */
 export default class Edge
 {
-    constructor( parent, child, operator )
+    parent : Stream
+    child : Stream
+    operator : Operator
+    /** if parent does not propagate to child (dependence from bottom to top only) */
+    down = false
+    /** true if child had the same rank when parent approached it */
+    pending = false
+
+    constructor( parent : Stream, child : Stream, operator : Operator )
     {
         this.parent = parent;
         this.child = child;
         this.operator = operator;
-        //true if child had the same rank when parent approached it:
-        this.pending = false;
         
         parent.children.push( this );
         child.parents.push( this );
@@ -34,7 +43,8 @@ export default class Edge
         
         if ( this.operator )
         {
-            if ( this.operator.destructor ) this.operator.destructor();
+            if ( this.operator.destructor )
+                this.operator.destructor();
             delete this.operator;
         }
     }

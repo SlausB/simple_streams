@@ -2,13 +2,20 @@
 import Stream from "../stream";
 import Edge from "../edge";
 import Args from "../args";
+import Operator from "../operator";
 
-export default function()
+class PairOperator extends Operator {
+    pair : any[] = undefined
+    constructor() {
+        super( apply, 'pair' )
+        this.destructor = () => delete this.pair
+    }
+}
+
+export default function( ... params : any[] )
 {
-    const args = Args( "pair", arguments, { maxTargets : 0 } );
-    const operator = {
-        apply
-    };
+    const args = Args( "pair", params, { maxTargets : 0 } );
+    const operator = new PairOperator
     
     const r = new Stream( args.source._name + ".pair" );
     new Edge(
@@ -16,18 +23,21 @@ export default function()
         r,
         operator
     );
-    operator.destructor = () => delete operator.pair;
     return r;
 }
 
-function apply( edge )
+function apply( edge : Edge )
 {
-    if ( ! edge.operator.pair ) edge.operator.pair = [ edge.parent.value ];
-    else edge.operator.pair.push( edge.parent.value );
-    if ( edge.operator.pair.length >= 2 )
+    const operator = edge.operator as PairOperator
+    if ( ! operator.pair )
+        operator.pair = [ edge.parent.value ];
+    else
+        operator.pair.push( edge.parent.value );
+    if ( operator.pair.length >= 2 )
     {
-        if ( edge.operator.pair.length > 2 ) edge.operator.pair.shift();
-        edge.child.value = edge.operator.pair.concat();
+        if ( operator.pair.length > 2 )
+            operator.pair.shift();
+        edge.child.value = operator.pair.concat();
         return true;
     }
     return false;

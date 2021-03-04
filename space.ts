@@ -3,27 +3,38 @@ import Stream from "./stream";
 
 const DELIMITER = ":";
 
+class StreamState {
+    subject : Stream
+    name : string
+}
+class InitialState {
+    stream : StreamState
+    initial : any
+}
+
 export default class Space
 {
-    constructor( name, description = '' )
+    name : String
+    description : String
+    streams : { [key: string]: StreamState } = {}
+    /** Other spaces which will be removed along with this one.*/
+    children : { [key: string]: Space } = {}
+    states : InitialState[] = []
+    cleared = false
+
+    constructor( name = '', description = '' )
     {
-        if ( name && name.indexOf( DELIMITER ) >= 0 ) throw "Space name cannot have delimiter (which is \"" + DELIMITER + "\") in it's name.";
+        if ( name && name.indexOf( DELIMITER ) >= 0 )
+            throw "Space name cannot have delimiter (which is \"" + DELIMITER + "\") in it's name.";
         
         this.name = name;
         this.description = description;
-        
-        this.streams = {};
-    
-        /** Other spaces which will be removed along with this one.*/
-        this.children = {};
-        
-        this.states = [];
     }
     
     /** Returns a subject of specified name. Creates new if doesn't yet exist.
      * @param initialUndefined Enforce that initial value does exist but it's undefined.
      */
-    s( name, initial, initialUndefined)
+    s( name : string, initial : any = undefined, initialUndefined : boolean = undefined )
     {
         const addressed = addressToChild( this, arguments );
         if ( addressed ) return addressed;
@@ -32,7 +43,7 @@ export default class Space
         if ( this.cleared )
         {
             console.warn( "Space already cleared. Covering with empty Stream, but please fix it, because it's a memory leak." );
-            return new Stream;
+            return new Stream( name );
         }
         
         let stream = this.streams[ name ];
@@ -40,10 +51,9 @@ export default class Space
         {
             const subject = new Stream( name );
             
-            stream = {
-                subject,
-                name
-            };
+            stream = new StreamState
+            stream.subject = subject
+            stream.name = name
             
             this.streams[ name ] = stream;
         }
@@ -56,15 +66,7 @@ export default class Space
         }
         return stream.subject;
     }
-    $() { this.s.apply( this, arguments ); }
-    
-    tween( v )
-    {
-        const r = new TWEEN.Tween( v );
-        if( ! this.tweens ) this.tweens = [];
-        this.tweens.push( r );
-        return r;
-    }
+    $() { this.s.apply( this, arguments ) }
     
     clear()
     {
@@ -88,33 +90,18 @@ export default class Space
         }
         delete this.streams;
         
-        if ( this.tweens )
-        {
-            for ( const tween of this.tweens )
-            {
-                if ( tween.kill )
-                {
-                    tween.kill()
-                }
-                else
-                {
-                    console.error( "TWEEN has NO kill() method" )
-                }
-            }
-            delete this.tweens;
-        }
-        
         this.cleared = true;
     }
     
     /** Get specified child. Will be created if not yet existing.*/
-    child( name, description)
+    child( name : string, description : string = undefined )
     {
-        let s = this
+        let s : Space = this
         for ( const n of name.split( DELIMITER ) )
         {
             const existing = s.children[ n ]
-            if ( existing ) s = existing
+            if ( existing )
+                s = existing
             else
             {
                 const new_s = new Space( n, description )
@@ -143,7 +130,7 @@ export default class Space
     }
     
     /** Subscribes right Subject (one from specified space) to left (of current Space) which has the same name.*/
-    glue( name, space )
+    glue( name : string, space : Space )
     {
         this.s( name ).to( space.s( name ) );
     }
@@ -160,7 +147,7 @@ export default class Space
         const alphabetically = Object.keys( this.streams ).sort()
         for ( const streamName of alphabetically )
         {
-            let description = this.streams[ streamName ].subject.description();
+            let description = this.streams[ streamName ].subject._description;
             if (description !== '') {
                 description = ' - ' + description;
             }

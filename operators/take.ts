@@ -2,15 +2,15 @@
 import Stream from "../stream";
 import Edge from "../edge";
 import Args from "../args";
+import Operator from "../operator";
 
-export default function()
+export default function( ... params : any[] )
 {
-    const args = Args( "take", arguments, { maxTargets : 0, needNumber : true } );
+    const args = Args( "take", params, { maxTargets : 0, needNumber : true } );
     
-    const operator = {
-        apply,
-        number : args.number
-    };
+    const operator = new Operator( apply, 'take' )
+    //@ts-ignore
+    operator.number = args.number
     
     const r = new Stream( args.source._name + ".take" );
     new Edge(
@@ -21,10 +21,15 @@ export default function()
     return r;
 }
 
-function apply( edge )
+function apply( edge : Edge )
 {
-    if ( ! edge.operator.took ) edge.operator.took = 0;
+    //@ts-ignore
+    if ( ! edge.operator.took )
+        //@ts-ignore
+        edge.operator.took = 0;
+    //@ts-ignore
     ++ edge.operator.took;
+    //@ts-ignore
     if ( edge.operator.took > edge.operator.number )
     {
         return false;

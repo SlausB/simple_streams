@@ -2,22 +2,31 @@
 import Stream from "../stream";
 import Edge from "../edge";
 import Args from "../args";
+import Operator from "../operator";
 
-export default function()
-{
-    const args = Args( "delay", arguments, { needNumber : true, maxTargets : 0 } );
-    
-    const operator = {
-        apply,
-        number : args.number
-    };
-    operator.destructor = () => {
-        if ( operator.timeouts )
-        {
-            for ( const timeout of operator.timeouts ) clearTimeout( timeout );
-            delete operator.timeouts;
+class DelayOperator extends Operator {
+    number : number
+    timeouts : ReturnType<typeof setTimeout>[] = []
+
+    constructor( number : number ) {
+        super( apply, 'delay' )
+        this.number = number
+        this.destructor = () => {
+            if ( this.timeouts )
+            {
+                for ( const timeout of this.timeouts )
+                    clearTimeout( timeout );
+                delete this.timeouts;
+            }
         }
-    };
+    }
+}
+
+export default function( ... params : any[] )
+{
+    const args = Args( "delay", params, { needNumber : true, maxTargets : 0 } );
+    
+    const operator = new DelayOperator( args.number )
     
     const r = new Stream( args.source._name + ".delay" );
     new Edge(
@@ -28,19 +37,22 @@ export default function()
     return r;
 }
 
-function apply( edge )
+function apply( edge : Edge )
 {
     //bind value now since it can change during the timeout:
     const value = edge.parent.value;
+    const operator = edge.operator as DelayOperator
     const timeout = setTimeout(
         () => {
-            edge.operator.timeouts.splice( edge.operator.timeouts.indexOf( timeout ), 1 );
+            operator.timeouts.splice( operator.timeouts.indexOf( timeout ), 1 );
             edge.child.next( value );
         },
-        edge.operator.number
+        operator.number
     );
-    if ( ! edge.operator.timeouts ) edge.operator.timeouts = [ timeout ];
-    else edge.operator.timeouts.push( timeout );
+    if ( ! operator.timeouts )
+        operator.timeouts = [ timeout ];
+    else
+        operator.timeouts.push( timeout );
     return false;
 }
 
