@@ -22,6 +22,7 @@ export default class Stream extends Propagating
     _description : string
     children : Edge[] = []
 
+
     constructor( name : string, description = '' )
     {
         super();
@@ -46,7 +47,9 @@ export default class Stream extends Propagating
         this._description = description;
         return this;
     }
-    desc() { return this.description.apply( this, arguments ); }
+    desc( ...args: Parameters<Stream["description"]> ) {
+        return this.description.apply( this, args )
+    }
     
     name( space : Space, name : string )
     {
@@ -68,7 +71,10 @@ export default class Stream extends Propagating
         return r;
     }
     
-    next( v : any ) { this.propagate( v ); return this; };
+    next< Type >( v : Type ) {
+        this.propagate( v )
+        return this
+    }
     
     log()
     {
@@ -76,7 +82,10 @@ export default class Stream extends Propagating
         return this;
     }
     
-    with( ... args : any[] )
+    with(
+        ... args : any[],
+        f : ( )
+    )
     {
         return With( this, ... args );
     }
@@ -157,4 +166,12 @@ export default class Stream extends Propagating
         return To( this, ... args );
     }
 }
+
+type FlattenStreams<T> = T extends Array<infer Item> ? Item : T
+type StreamParam = Stream | string
+type Streams = [ StreamParam ]
+function TestWith(
+    s : StreamParam,
+    ... StreamParam[],
+)
 

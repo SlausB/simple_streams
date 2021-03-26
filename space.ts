@@ -22,6 +22,10 @@ export default class Space
     states : InitialState[] = []
     cleared = false
 
+    /** <stream name> -> <type> TypeScript type system verification.*/
+    stream_types : { [ key : string ] : string } = {}
+
+
     constructor( name = '', description = '' )
     {
         if ( name && name.indexOf( DELIMITER ) >= 0 )
@@ -164,7 +168,7 @@ export default class Space
     //TODO: check that all subscribtions have corresponding .next()s existing ...
 }
 
-function addressToChild( space, args )
+function addressToChild( space : Space, args )
 {
     //original arguments IS an array but it doesn't have shift() method:
     const shifted = [];

@@ -1,0 +1,14 @@
+# points to the file
+# where your macros are defined
+# this is the default
+macros = '.macros.ts'
+
+# entry globs and compilation environments
+# for as many different directories as you want
+[[packages]]
+location = 'macro_test/'
+entry = 'space.ts'
+# you can give a package
+# more than one compilation environment
+environment = [ 'modernbrowser', 'node' ]
+
