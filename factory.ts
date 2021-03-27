@@ -1,1 +1,0 @@
-( space : any, stream : any, value : any ) => { space.names[ stream ] = typeof value }
