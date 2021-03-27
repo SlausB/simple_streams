@@ -31,7 +31,31 @@ export default function stream_type_safety_as_transformer<T extends ts.Node>(
     };
 
     function visit( node: ts.Node ) {
-        //@ts-ignore
+        if ( ts.isMethodSignature( node ) ) {
+            const fe = node as ts.MethodSignature
+            console.log( 'FUNCTION', fe.name, ':', checker.typeToString( checker.getTypeAtLocation( fe ) ) )
+            /*for ( const pd of fe.parameters ) {
+                pd.
+            }*/
+        }
+
+        /**
+        "space.s( 'hi', stream_type )" is:
+            ExpressionStatement = 233
+            CallExpression = 203
+            PropertyAccessExpression = 201
+        */
+
+        /*if ( ts.isExpressionStatement( node ) ) {
+            const es = node as ts.ExpressionStatement
+            es.forEachChild( verbose_visitor )
+        }*/
+
+        match_stream_s( node, checker )
+
+        //console.log( 'Node:', node.kind, node.getText(), node.pos )
+
+        /*//@ts-ignore
         const name = node.name
         if ( name ) {
             const symbol = checker.getSymbolAtLocation( name )
@@ -41,8 +65,91 @@ export default function stream_type_safety_as_transformer<T extends ts.Node>(
                     checker.typeToString( checker.getTypeOfSymbolAtLocation( symbol, symbol.valueDeclaration ) )
                 )
             }
-        }
+        }*/
+
         ts.forEachChild( node, visit )
     }
+}
+
+function verbose_visitor( node : ts.Node, depth : number = 1 ) {
+    console.log( '    '.repeat(depth) + 'verbose visitor:', node.kind, node.getText(), node.pos )
+    node.forEachChild( node => verbose_visitor( node, depth + 1 ) )
+}
+
+function match_stream_s( node : ts.Node, checker : ts.TypeChecker ) : boolean {
+    if ( node.kind != ts.SyntaxKind.CallExpression )
+        return false
+    const ce = node as ts.CallExpression
+    if ( ce.expression.kind != ts.SyntaxKind.PropertyAccessExpression )
+        return false
+    const pae = ce.expression as ts.PropertyAccessExpression
+    if ( ! is_space_object( pae.expression, checker ) )
+        return false
+    
+    console.log( 'Space detected!' )
+    console.log( 'arguments:' )
+    for ( const arg of ce.arguments ) {
+        console.log( '    ', arg.getText() )
+    }
+
+    const type = checker.getTypeAtLocation( ce.arguments[1] )
+    console.log( 'TYPE:', checker.typeToString( type ) )
+    //console.log( 'naked:', type )
+    console.log( 'serialized:', serialize_type( type, checker ) )
+
+    return false
+}
+
+function is_space_object( e : ts.Node, checker : ts.TypeChecker ) : boolean {
+    const type = checker.getTypeAtLocation( e )
+    const type_string = checker.typeToString( type )
+    if ( type_string != 'Space' )
+        return false
+    const properties = checker.getPropertiesOfType( type )
+
+    let methods_detected = 0
+    for ( const p of properties ) {
+        if ( space_properties.indexOf( p.escapedName.toString() ) )
+            ++ methods_detected
+    }
+    if ( methods_detected >= space_properties.length )
+        return true
+    
+    return false
+}
+const space_properties = [
+    'stream',
+    's',
+]
+
+function serialize_type( type : ts.Type, checker : ts.TypeChecker ) : string {
+    const result : { [ key : string ] : string } = {}
+    console.log( 'properties:')
+    for ( const p of type.getProperties() ) {
+        //@ts-ignore
+        const type = ( p.type as ts.Type )
+        const field_name = p.getName()
+        const field_type = checker.typeToString( type )
+        result[ field_name ] = field_type
+        console.log( '    ', field_name, field_type )
+
+        //object fields initializations with starting values:
+        const ds = p.getDeclarations()
+        if ( ds ) {
+            console.log( '    ', 'declarations:' )
+            for ( const d of ds ) {
+                console.log( '        ', d.getText() )
+            }
+        }
+    }
+    return JSON.stringify( result )
+}
+
+function find_child( children : ts.Node[], kind : ts.SyntaxKind ) : ts.Node | undefined {
+    for ( const child of children ) {
+        if ( child.kind == kind )
+            return child
+    }
+    return undefined
 }
 
