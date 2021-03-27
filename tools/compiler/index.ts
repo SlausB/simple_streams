@@ -127,19 +127,41 @@ function serialize_type( type : ts.Type, checker : ts.TypeChecker ) : string {
     console.log( 'properties:')
     for ( const p of type.getProperties() ) {
         //@ts-ignore
-        const type = ( p.type as ts.Type )
+        const field = ( p.type as ts.Type )
         const field_name = p.getName()
-        const field_type = checker.typeToString( type )
+        const field_type = checker.typeToString( field )
         result[ field_name ] = field_type
         console.log( '    ', field_name, field_type )
-
-        //object fields initializations with starting values:
-        const ds = p.getDeclarations()
-        if ( ds ) {
-            console.log( '    ', 'declarations:' )
-            for ( const d of ds ) {
-                console.log( '        ', d.getText() )
+        if ( field_type == 'EmbeddedType' ) {
+            //console.log( 'widened type:', checker.getWidenedType( field ) )
+            const widened_type = checker.getWidenedType( field )
+            const symbol = widened_type.getSymbol()
+            if ( symbol ) {
+                for ( const member of symbol.members ) {
+                    const member_symbol = member[ 1 ]
+                    //console.log( 'member symbol:', member_symbol )
+                    console.log( 'member symbol string:', checker.getFullyQualifiedName( member_symbol ) )
+                    const type_of_member_symbol = checker.getDeclaredTypeOfSymbol( member_symbol )
+                    //console.log( 'TYPE:', type_of_member_symbol ) = { ..., intrinsicName: 'error', ... }
+                }
             }
+
+            /*//console.log( 'TYPE:', field )
+            const properties = checker.getPropertiesOfType( field )
+            //console.log( properties.length, 'properties:', properties )
+            for ( const embedded_p of properties ) {
+                const target_symbol = embedded_p.target as ts.Symbol
+                console.log( '    ', embedded_p.escapedName.toString(), ' target:', target_symbol )
+            }*/
+
+            /*//object fields initializations with starting values:
+            const ds = p.getDeclarations()
+            if ( ds ) {
+                console.log( '    ', 'declarations:' )
+                for ( const d of ds ) {
+                    console.log( '        ', d.getText(), d )
+                }
+            }*/
         }
     }
     return JSON.stringify( result )
