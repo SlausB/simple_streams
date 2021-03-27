@@ -4,7 +4,7 @@ declare function stream< Type >( space : { names : string[] }, stream : string, 
 const space = { names : [] }
 const stream_type = {
     value : 100500,
-    something : 'my complicated type',
+    something : 'part of my complicated type',
 }
 stream!!( space, 'hi', stream_type )
 
