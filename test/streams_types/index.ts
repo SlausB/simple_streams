@@ -6,7 +6,7 @@ import fs from 'fs'
 function compare( source : string, expectation : string ) {
     //invoking the compiler:
     try { child_process.execSync( 'rm streams_types.json' ) } catch(e:any){}
-    child_process.execSync( 'npx ttsc ' + source )
+    child_process.execSync( 'npx ttsc --noEmit ' + source )
     
     assert.deepStrictEqual(
         JSON.parse( fs.readFileSync( 'streams_types.json', 'utf8' ) ),
