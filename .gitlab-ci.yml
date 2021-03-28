@@ -17,9 +17,9 @@ cache:
 test_streams_types_tool:
   script:
     - npm install
-    - npm test test_streams_types
+    - npm run test_streams_types
 
 test_streams:
   script:
     - npm install
-    - npm test test_streams
+    - npm run test_streams
