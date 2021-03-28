@@ -9,72 +9,26 @@ export default function stream_type_safety_as_transformer<T extends ts.Node>(
 
     for ( const sourceFile of program.getSourceFiles() ) {
         if ( ! sourceFile.isDeclarationFile ) {
-            console.log( 'source file:', sourceFile.fileName )
-            // Walk the tree
             ts.forEachChild( sourceFile, visit );
         }
     }
+    pretty_print( streams, 'streams:' )
 
+    //no need to make any AST transformations: just statically analyze streams types:
     return context => {
-        //console.log( 'CONTEXT:', context )
         const visit: ts.Visitor = node => {
-            //console.log( 'Node:', node.kind, node.getText(), node.pos )
-
-            /*if (ts.isNumericLiteral(node)) {
-                return ts.createStringLiteral(node.text);
-            }
-            return ts.visitEachChild(node, child => visit(child), context);*/
             return ts.visitEachChild( node, child => visit( child ), context )
         };
-  
         return node => ts.visitNode(node, visit);
     };
 
     function visit( node: ts.Node ) {
-        if ( ts.isMethodSignature( node ) ) {
-            const fe = node as ts.MethodSignature
-            console.log( 'FUNCTION', fe.name, ':', checker.typeToString( checker.getTypeAtLocation( fe ) ) )
-            /*for ( const pd of fe.parameters ) {
-                pd.
-            }*/
-        }
-
-        /**
-        "space.s( 'hi', stream_type )" is:
-            ExpressionStatement = 233
-            CallExpression = 203
-            PropertyAccessExpression = 201
-        */
-
-        /*if ( ts.isExpressionStatement( node ) ) {
-            const es = node as ts.ExpressionStatement
-            es.forEachChild( verbose_visitor )
-        }*/
-
         match_stream_s( node, checker )
-
-        //console.log( 'Node:', node.kind, node.getText(), node.pos )
-
-        /*//@ts-ignore
-        const name = node.name
-        if ( name ) {
-            const symbol = checker.getSymbolAtLocation( name )
-            if ( symbol ) {
-                console.log(
-                    'type string:',
-                    checker.typeToString( checker.getTypeOfSymbolAtLocation( symbol, symbol.valueDeclaration ) )
-                )
-            }
-        }*/
-
         ts.forEachChild( node, visit )
     }
 }
 
-function verbose_visitor( node : ts.Node, depth : number = 1 ) {
-    console.log( '    '.repeat(depth) + 'verbose visitor:', node.kind, node.getText(), node.pos )
-    node.forEachChild( node => verbose_visitor( node, depth + 1 ) )
-}
+const streams : { [ key : string ] : any } = {}
 
 function match_stream_s( node : ts.Node, checker : ts.TypeChecker ) : boolean {
     if ( node.kind != ts.SyntaxKind.CallExpression )
@@ -86,16 +40,20 @@ function match_stream_s( node : ts.Node, checker : ts.TypeChecker ) : boolean {
     if ( ! is_space_object( pae.expression, checker ) )
         return false
     
-    console.log( 'Space detected!' )
+    /*console.log( 'Space detected!' )
     console.log( 'arguments:' )
     for ( const arg of ce.arguments ) {
         console.log( '    ', arg.getText() )
-    }
+    }*/
+
+    //pollutes the text with quotes:
+    //const stream_name = ce.arguments[ 0 ].getText()
+    const stream_name = ce.arguments[0].text
 
     const type = checker.getTypeAtLocation( ce.arguments[1] )
-    console.log( 'TYPE:', checker.typeToString( type ) )
-    //console.log( 'naked:', type )
-    console.log( 'serialized:', serialize_type( type, checker ) )
+    const stream_data = serialize_type( type, checker )
+
+    streams[ stream_name ] = stream_data
 
     return false
 }
@@ -122,7 +80,7 @@ const space_properties = [
     's',
 ]
 
-function serialize_type( type : ts.Type, checker : ts.TypeChecker ) : string {
+function serialize_type( type : ts.Type, checker : ts.TypeChecker ) : { [ key : string ] : any } | string {
     const symbol = type.getSymbol()
     if ( ! symbol ) {
         //seems like it's actually just TypeScript-provided type:
@@ -136,20 +94,15 @@ function serialize_type( type : ts.Type, checker : ts.TypeChecker ) : string {
     for ( const d of symbol.declarations ) {
         const declaration_type = checker.getTypeAtLocation( d )
         if ( symbol.members ) {
-            console.log( 'user type:', checker.typeToString( declaration_type ) )
-            const result : { [ key : string ] : string } = {}
+            const result : { [ key : string ] : any } = {}
             for ( const [ name, mbr ] of symbol.members ) {
                 const member = mbr as ts.Symbol
-
                 const member_type = checker.getTypeAtLocation( member.valueDeclaration )
-
-                console.log( 'recursing into', name )
                 result[ name ] = serialize_type( member_type, checker )
             }
-            return JSON.stringify( result )
+            return result
         }
         else {
-            console.log( 'lib type:', checker.typeToString( declaration_type ) )
             return checker.typeToString( declaration_type )
         }
     }
@@ -162,5 +115,11 @@ function find_child( children : ts.Node[], kind : ts.SyntaxKind ) : ts.Node | un
             return child
     }
     return undefined
+}
+
+export function pretty_print( object : any, prefix : any = undefined ) {
+    if ( prefix )
+        console.log( prefix )
+    console.dir( object, {depth: null, colors: true})
 }
 
