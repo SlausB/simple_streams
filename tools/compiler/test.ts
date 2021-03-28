@@ -14,7 +14,7 @@ const stream_type = {
 }
 
 const space = new Space
-space.s( 'first', stream_type )
+//space.s( 'first', stream_type )
 
 space.s( 'second', 42 )
 

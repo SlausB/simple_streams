@@ -50,6 +50,7 @@ function match_stream_s( node : ts.Node, checker : ts.TypeChecker ) : boolean {
     //const stream_name = ce.arguments[ 0 ].getText()
     const stream_name = ce.arguments[0].text
 
+    //console.log( 'argument:', ce.arguments[1] )
     const type = checker.getTypeAtLocation( ce.arguments[1] )
     const stream_data = serialize_type( type, checker )
 
@@ -80,14 +81,26 @@ const space_properties = [
     's',
 ]
 
-function serialize_type( type : ts.Type, checker : ts.TypeChecker ) : { [ key : string ] : any } | string {
+function serialize_type(
+    type : ts.Type,
+    checker : ts.TypeChecker,
+    depth = 0,
+) : { [ key : string ] : any } | string
+{
+    //console.log( '    '.repeat(depth) + 'type:', type )
     const symbol = type.getSymbol()
     if ( ! symbol ) {
         //seems like it's actually just TypeScript-provided type:
         /*console.log( 'type', checker.typeToString( type ), 'has NO symbol', type )
         throw new Error( 'Type MUST have a symbol' )*/
 
-        return checker.typeToString( type )
+        //for some reason expression 42 has no symbol (making it impossible to determin it's type), has just text '42', but has flags: 256 which is TypeFlags.NumberLiteral:
+        /*console.log( '    '.repeat(depth) + 'symbol-less:', checker.typeToString( type ), type )
+        return checker.typeToString( type ) //returns string '42'*/
+        if ( hasFlag( type, ts.TypeFlags.NumberLiteral ) )
+            return 'number'
+        if ( hasFlag( type, ts.TypeFlags.StringLiteral ) )
+            return 'string'
     }
 
     //I don't know yet what multiple declarations mean:
@@ -98,15 +111,19 @@ function serialize_type( type : ts.Type, checker : ts.TypeChecker ) : { [ key : 
             for ( const [ name, mbr ] of symbol.members ) {
                 const member = mbr as ts.Symbol
                 const member_type = checker.getTypeAtLocation( member.valueDeclaration )
-                result[ name ] = serialize_type( member_type, checker )
+                result[ name ] = serialize_type( member_type, checker, depth + 1 )
             }
             return result
         }
         else {
-            return checker.typeToString( declaration_type )
+            //return checker.typeToString( declaration_type )
+            return serialize_type( declaration_type, checker, depth + 1 )
         }
     }
     throw new Error( 'type was supposed to unravel at this point' )
+}
+function hasFlag(type: ts.Type, flag: ts.TypeFlags) {
+    return (type.flags & flag) === flag;
 }
 
 function find_child( children : ts.Node[], kind : ts.SyntaxKind ) : ts.Node | undefined {
