@@ -8,9 +8,9 @@ class EmbeddedType {
 }
 
 const stream_type = {
-    value : 100500,
-    something : 'part of my complicated type',
-    embedded : new EmbeddedType
+    //value : 100500,
+    //something : 'part of my complicated type',
+    embedded : new EmbeddedType,
 }
 
 const space = new Space

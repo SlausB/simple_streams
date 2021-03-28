@@ -8,6 +8,10 @@ export default function stream_type_safety_as_transformer<T extends ts.Node>(
     const checker = program.getTypeChecker()
 
     for ( const sourceFile of program.getSourceFiles() ) {
+        project_sources.push( sourceFile.fileName )
+    }
+
+    for ( const sourceFile of program.getSourceFiles() ) {
         if ( ! sourceFile.isDeclarationFile ) {
             console.log( 'source file:', sourceFile.fileName )
             // Walk the tree
@@ -122,17 +126,131 @@ const space_properties = [
     's',
 ]
 
+/** Clumsy way to determine if node was provided by lib user or otherwise intrinsic to TypeScript */
+const project_sources : string[] = []
+function is_user_provided( node : ts.Node ) : boolean {
+    if ( node.parent )
+        return is_user_provided( node.parent )
+    return project_sources.indexOf( ( node as ts.SourceFile ).fileName ) >= 0
+}
+
 function serialize_type( type : ts.Type, checker : ts.TypeChecker ) : string {
+    const symbol = type.getSymbol()
+    if ( ! symbol ) {
+        console.log( 'type', checker.typeToString( type ), 'has NO symbol', type )
+        throw new Error( 'Type MUST have a symbol' )
+    }
+
+    //I don't know yet what multiple declarations mean:
+    for ( const d of symbol.declarations ) {
+        const declaration_type = checker.getTypeAtLocation( d )
+        if ( symbol.members && is_user_provided( d ) ) {
+            console.log( 'user type:', checker.typeToString( declaration_type ) )
+            const result : { [ key : string ] : string } = {}
+            for ( const [ name, mbr ] of symbol.members ) {
+                const member = mbr as ts.Symbol
+
+                const member_type = checker.getTypeAtLocation( member.valueDeclaration )
+
+                /*const member_type = checker.getDeclaredTypeOfSymbol( member )
+                //as I investigated, members defined in place has no types, but initializer : TokenObject
+                if ( member_type.intrinsicName == 'error' ) {
+                    const vd : ts.Node = member.valueDeclaration
+                    const deep_type = checker.getTypeAtLocation( vd )
+                    console.log( 'TYPE:', checker.typeToString( deep_type ), 'SYMBOL:', deep_type.getSymbol() )
+                    continue
+                }*/
+
+                console.log( 'recursing into', name, member_type )
+                result[ name ] = serialize_type( member_type, checker )
+            }
+            return JSON.stringify( result )
+        }
+        else {
+            console.log( 'lib type:', checker.typeToString( declaration_type ) )
+            return checker.typeToString( declaration_type )
+        }
+    }
+    return 'ERROR'
+
+    if ( ! symbol.members ) {
+        console.log( 'member', symbol.escapedName, 'has NO members; it\'s type:', checker.typeToString( type ) )
+        return checker.typeToString( type )
+    }
     const result : { [ key : string ] : string } = {}
-    console.log( 'properties:')
-    for ( const p of type.getProperties() ) {
+    for ( const [ name, member ] of symbol.members ) {
+        //console.log( 'member?:', member )
+        const ms = member as ts.Symbol
+
+        for ( const d of ms.declarations ) {
+            console.log( name, 'declaration:', d )
+            evaluate_parents( d )
+            //console.log( 'declaration type:', type.getSymbol( checker.getTypeAtLocation( d ) ) )
+        }
+
+        /*const member_type = checker.getDeclaredTypeOfSymbol( ms )
+
+        //as I investigated, members defined in place has no types, but initializer : TokenObject
+        if ( member_type.intrinsicName == 'error' ) {
+            const initializer = member.initializer as ts.Token
+            //console.log( 'error member:', member, 'initializer:', initializer )
+
+            const vd : ts.Node = member.valueDeclaration
+            const deep_type = checker.getTypeAtLocation( vd )
+            console.log( 'TYPE:', checker.typeToString( deep_type ), 'SYMBOL:', deep_type.getSymbol() )
+            continue
+        }
+
+        result[ ms.getEscapedName().toString() ] = serialize_type( member_type, checker )
+        console.log( 'member:', member.escapedName )*/
+    }
+    return JSON.stringify( result )
+
+    /*const properties = type.getProperties()
+    //probing the type for being non-trivial:
+    if ( properties ) {
+        const result : { [ key : string ] : string } = {}
+
+        for ( const p of properties ) {
+            const property_type = checker.getDeclaredTypeOfSymbol( p )
+            const property_name = p.getName()
+            const widened_type = checker.getWidenedType( property_type )
+            console.log( 'PROPERTY', property_name, 'type:', checker.typeToString( property_type ) )
+            console.log( '    widened:',  checker.typeToString( widened_type ) )
+
+            //@ts-ignore
+            const field = p.type as ts.Type
+            //was observed that toString() method of 'number'/'string' types has no type, for example:
+            if ( ! field ) {
+                console.error( '    property', property_name, 'has NO type' )
+                continue
+            }
+
+            result[ property_name ] = serialize_type( field, checker )
+        }
+        return JSON.stringify( result )
+    }
+    return checker.typeToString( type )*/
+
+    /*for ( const p of type.getProperties() ) {
         //@ts-ignore
         const field = ( p.type as ts.Type )
         const field_name = p.getName()
-        const field_type = checker.typeToString( field )
-        result[ field_name ] = field_type
-        console.log( '    ', field_name, field_type )
-        if ( field_type == 'EmbeddedType' ) {
+        const field_type_name = checker.typeToString( field )
+        result[ field_name ] = field_type_name
+        console.log( '    ', field_name, field_type_name )
+
+        //probing the type for being non-trivial:
+        const widened_type = checker.getWidenedType( field )
+        const symbol = widened_type.getSymbol()
+        if ( symbol && symbol.members ) {
+            result[ field_name ] = serialize_type(  )
+        }
+        else {
+            result[ field_name ] = field_type_name
+        }
+
+        if ( field_type_name == 'EmbeddedType' ) {
             //console.log( 'widened type:', checker.getWidenedType( field ) )
             const widened_type = checker.getWidenedType( field )
             const symbol = widened_type.getSymbol()
@@ -144,7 +262,7 @@ function serialize_type( type : ts.Type, checker : ts.TypeChecker ) : string {
                     const type_of_member_symbol = checker.getDeclaredTypeOfSymbol( member_symbol )
                     //console.log( 'TYPE:', type_of_member_symbol ) = { ..., intrinsicName: 'error', ... }
                 }
-            }
+            }*/
 
             /*//console.log( 'TYPE:', field )
             const properties = checker.getPropertiesOfType( field )
@@ -162,9 +280,18 @@ function serialize_type( type : ts.Type, checker : ts.TypeChecker ) : string {
                     console.log( '        ', d.getText(), d )
                 }
             }*/
-        }
+        /*}
     }
-    return JSON.stringify( result )
+
+    return JSON.stringify( result )*/
+}
+
+function evaluate_parents( d : ts.Node ) {
+    if ( d.parent ) {
+        evaluate_parents( d.parent )
+        return
+    }
+    console.log( 'upmost:', d )
 }
 
 function find_child( children : ts.Node[], kind : ts.SyntaxKind ) : ts.Node | undefined {
