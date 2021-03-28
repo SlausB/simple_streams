@@ -5,7 +5,7 @@ import fs, { unlinkSync } from 'fs'
 
 function compare( source : string, expectation : string ) {
     //try { child_process.execSync( 'rm streams_types.json' ) } catch(e:any){}
-    unlinkSync( 'streams_types.json' )
+    try { unlinkSync( 'streams_types.json' ) } catch(e:any){}
 
     //invoking the compiler:
     child_process.execSync( 'npx ttsc --noEmit ' + source )
