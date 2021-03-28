@@ -1,4 +1,5 @@
 import ts from 'typescript'
+import fs from 'fs'
 
 export default function stream_type_safety_as_transformer<T extends ts.Node>(
     program : ts.Program,
@@ -12,7 +13,13 @@ export default function stream_type_safety_as_transformer<T extends ts.Node>(
             ts.forEachChild( sourceFile, visit );
         }
     }
-    pretty_print( streams, 'streams:' )
+    function visit( node: ts.Node ) {
+        match_stream_s( node, checker )
+        ts.forEachChild( node, visit )
+    }
+
+    //pretty_print( streams, 'streams:' )
+    fs.writeFileSync( 'streams_types.json', JSON.stringify( streams ) )
 
     //no need to make any AST transformations: just statically analyze streams types:
     return context => {
@@ -21,11 +28,6 @@ export default function stream_type_safety_as_transformer<T extends ts.Node>(
         };
         return node => ts.visitNode(node, visit);
     };
-
-    function visit( node: ts.Node ) {
-        match_stream_s( node, checker )
-        ts.forEachChild( node, visit )
-    }
 }
 
 const streams : { [ key : string ] : any } = {}

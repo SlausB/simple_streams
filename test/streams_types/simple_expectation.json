@@ -1,0 +1,11 @@
+{
+    "first" : {
+        "value" : "number",
+        "something" : "string",
+        "embedded" : {
+            "field" : "string",
+            "method" : "(param: string) => boolean"
+        }
+    },
+    "second" : "number"
+}

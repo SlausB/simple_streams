@@ -1,4 +1,4 @@
-import Space from './space'
+import Space from '../../tools/compiler/space'
 
 class EmbeddedType {
     field = 'embedded field'

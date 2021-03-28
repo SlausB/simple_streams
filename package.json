@@ -6,6 +6,7 @@
   "scripts": {
     "create_macro": "ts-creator ./factory.ts -o stream_macro.ts",
     "macro_test": "macro-ts build",
+    "test_streams_types": "ts-mocha ./test/streams_types/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -24,11 +25,17 @@
   },
   "homepage": "https://github.com/SlavMFM/simple_streams#readme",
   "devDependencies": {
+    "@types/chai": "^4.2.15",
+    "@types/expect": "^24.3.0",
+    "@types/mocha": "^8.2.2",
     "@typescript-eslint/eslint-plugin": "^4.19.0",
     "@typescript-eslint/parser": "^4.19.0",
+    "chai": "^4.3.4",
     "eslint": "^7.22.0",
     "ts-creator": "^1.2.5",
+    "ts-mocha": "^8.0.0",
     "ts-morph": "^10.0.2",
+    "ts-node": "^9.1.1",
     "ttypescript": "^1.5.12",
     "typescript": "^4.2.3"
   },

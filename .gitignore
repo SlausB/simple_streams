@@ -1,2 +1,3 @@
 node_modules
 .macro-ts/dist
+streams_types.json
