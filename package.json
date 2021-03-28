@@ -7,7 +7,7 @@
     "create_macro": "ts-creator ./factory.ts -o stream_macro.ts",
     "macro_test": "macro-ts build",
     "test_streams_types": "ts-mocha ./test/streams_types/index.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test_streams": "ts-mocha ./test/streams/streams.ts"
   },
   "repository": {
     "type": "git",
