@@ -7,7 +7,14 @@ export default function stream_type_safety_as_transformer<T extends ts.Node>(
 ): ts.TransformerFactory<T> {
     const checker = program.getTypeChecker()
 
+    let sf : ts.SourceFile | undefined = undefined
+    const printer = ts.createPrinter()
+    const my_printer = ( node : ts.Node ) => {
+        console.log( 'MY PRINTER:', printer.printNode(ts.EmitHint.Unspecified, node.type!, sf! ) )
+    }
+
     for ( const sourceFile of program.getSourceFiles() ) {
+        sf = sourceFile
         if ( ! sourceFile.isDeclarationFile ) {
             ts.forEachChild( sourceFile, visit );
         }
@@ -23,14 +30,18 @@ export default function stream_type_safety_as_transformer<T extends ts.Node>(
     };
 
     function visit( node: ts.Node ) {
-        match_stream_s( node, checker )
+        match_stream_s( node, checker, my_printer )
         ts.forEachChild( node, visit )
     }
 }
 
 const streams : { [ key : string ] : any } = {}
 
-function match_stream_s( node : ts.Node, checker : ts.TypeChecker ) : boolean {
+function match_stream_s(
+    node : ts.Node,
+    checker : ts.TypeChecker,
+    printer : ( node : ts.Node ) => void,
+) : boolean {
     if ( node.kind != ts.SyntaxKind.CallExpression )
         return false
     const ce = node as ts.CallExpression
@@ -51,6 +62,7 @@ function match_stream_s( node : ts.Node, checker : ts.TypeChecker ) : boolean {
     const stream_name = ce.arguments[0].text
 
     //console.log( 'argument:', ce.arguments[1] )
+    printer( ce.arguments[1] )
     const type = checker.getTypeAtLocation( ce.arguments[1] )
     const stream_data = serialize_type( type, checker )
 
