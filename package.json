@@ -7,7 +7,7 @@
     "create_macro": "ts-creator ./factory.ts -o stream_macro.ts",
     "macro_test": "macro-ts build",
     "test_streams_types": "ts-mocha --timeout 5000 ./test/streams_types/index.ts",
-    "test_streams": "ts-mocha ./test/streams/streams.ts"
+    "test_streams": "ts-mocha ./test/streams/stream.ts"
   },
   "repository": {
     "type": "git",
