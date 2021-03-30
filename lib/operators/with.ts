@@ -3,11 +3,12 @@ import Stream from "../stream";
 import Edge from "../edge";
 import Args from "../args";
 import Operator from "../operator";
+import Space from "../space";
 
-export default function( ... params : any[] )
+export default function( space : Space, ... params : any[] )
 {
     //@ts-ignore
-    const args = Args( "with", params, { canF : true, minTargets : 1 } );
+    const args = Args( space, "with", params, { canF : true, minTargets : 1 } );
     
     const operator = new Operator( apply, 'with' )
     //@ts-ignore
@@ -15,7 +16,7 @@ export default function( ... params : any[] )
     //@ts-ignore
     operator.destructor = () => delete operator.f;
     
-    const r = new Stream( args.source._name + ".with" );
+    const r = new Stream( space, args.source._name + ".with" );
     new Edge(
         args.source,
         r,

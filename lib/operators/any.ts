@@ -3,10 +3,11 @@ import Stream from "../stream";
 import Edge from "../edge";
 import Args from "../args";
 import Operator from "../operator";
+import Space from "../space";
 
-export default function( ... params : any[] )
+export default function( space : Space, ... params : any[] )
 {
-    const args = Args( "any", params, { canF : true, minTargets : 1 } );
+    const args = Args( space, "any", params, { canF : true, minTargets : 1 } );
     
     const operator = new Operator( apply, 'any' )
     //@ts-ignore
@@ -14,7 +15,7 @@ export default function( ... params : any[] )
     //@ts-ignore
     operator.destructor = () => delete operator.f;
     
-    const r = new Stream( args.source._name + ".any" );
+    const r = new Stream( space, args.source._name + ".any" );
     r.parents = [];
     const glue = ( t : Stream ) => {
         new Edge(

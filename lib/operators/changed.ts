@@ -3,7 +3,7 @@ import Operator from "../operator";
 
 export default class Changed extends Operator {
     f ?: Function
-    constructor( f : Function ) {
+    constructor( f ?: Function ) {
         super( apply, 'changed' )
         this.f = f
         this.destructor = () => delete this.f

@@ -1,30 +1,11 @@
 
 import Stream from "./stream";
 
-const DELIMITER = ":";
-
-class StreamState {
-    subject : Stream
-    name : string
-    constructor( subject : Stream, name : string ) {
-        this.subject = subject
-        this.name = name
-    }
-}
-class InitialState {
-    stream : StreamState
-    initial : any
-    constructor( stream : StreamState, initial : string ) {
-        this.stream = stream
-        this.initial = initial
-    }
-}
-
 export default class Space
 {
     name : String
     description : String
-    streams : { [key: string]: StreamState } = {}
+    streams : { [key: string]: StreamPointer } = {}
     states : InitialState[] = []
 
     /** <stream name> -> <type> TypeScript type system verification.*/
@@ -45,8 +26,10 @@ export default class Space
         let stream = this.streams[ name ];
         if ( ! stream )
         {
-            const subject = new Stream( name )
-            this.streams[ name ] = new StreamState( subject, name )
+            const subject = new Stream( this, name )
+            const pointer = new StreamPointer( subject, name )
+            stream = pointer
+            this.streams[ name ] = pointer
         }
         if ( initial !== undefined || initialUndefined )
         {
@@ -106,6 +89,25 @@ export default class Space
         console.groupEnd()
     }
     
-    //TODO: check that all subscribtions have corresponding .next()s existing ...
+    //TODO: check that all subscribtions have corresponding .next()s existing ...  (2021:) that should be handled with streams types static analysis tool which is implemented as TypeScript compiler API addon
+}
+
+const DELIMITER = ":";
+
+class StreamPointer {
+    subject : Stream
+    name : string
+    constructor( subject : Stream, name : string ) {
+        this.subject = subject
+        this.name = name
+    }
+}
+class InitialState {
+    stream : StreamPointer
+    initial : any
+    constructor( stream : StreamPointer, initial : string ) {
+        this.stream = stream
+        this.initial = initial
+    }
 }
 

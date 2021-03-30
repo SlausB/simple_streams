@@ -14,6 +14,7 @@ import Pair    from "./operators/pair"
 import Take    from "./operators/take"
 import To      from "./operators/to"
 import Do      from "./operators/do"
+import { literal_stream } from "./args"
 
 export default class Stream extends Propagating
 {
@@ -77,14 +78,14 @@ export default class Stream extends Propagating
     
     with( ... args : any[] )
     {
-        return With( ... args )
+        return With( this.space, ... args )
     }
     withLatestFrom( ... args : Parameters< Stream['with'] > ) { return this.with.apply( this, args ) }
     
     /** When any of streams update (both this and specified).*/
     any( ... args : any[] )
     {
-        return Any( ... args )
+        return Any( this.space, ... args )
     }
     combineLatest( ...args: Parameters<Stream["any"]> ) { return this.any.apply( this, args ) }
     
@@ -184,7 +185,7 @@ export default class Stream extends Propagating
     }
     pairwise( ... args : Parameters<Stream['pair']> ) { return this.pair.apply( this, args ) }
     
-    changed( f : ( prev_v : any, new_v : any ) => boolean )
+    changed( f ?: ( prev_v : any, new_v : any ) => boolean )
     {
         const r = new Stream( this.space, this._name + ".changed" );
         new Edge(
@@ -206,12 +207,5 @@ export default class Stream extends Propagating
         )
         return target;
     }
-}
-
-function literal_stream( s : Stream | string, space : Space ) {
-    if ( typeof s === 'string' || s instanceof String ) {
-        return space.s( s as string )
-    }
-    return s
 }
 

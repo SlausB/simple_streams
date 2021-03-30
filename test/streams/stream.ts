@@ -7,25 +7,32 @@ describe( "Stream", () =>
 {
     it( "on", done =>
     {
-        const root = new Stream( "root" );
-        root.on( () => done() );
+        const s = new Space
+        const root = s.s( 'root' )
+        root.on( () => {
+            s.clear()
+            done()
+        } )
         root.next();
     } );
     
     it( "multiple children with propagation cancel", done =>
     {
-        const root = new Stream( "root" );
+        const s = new Space
+        const root = s.s( 'root' )
         let onCalls = 0;
         root.on( () => ++ onCalls );
         root.on( () => ++ onCalls );
         root.next( "r" );
         expect( onCalls ).eql( 2 );
+        s.clear()
         done();
     } );
     
     it( "diamond with", done =>
     {
-        const root = new Stream( "root" );
+        const s = new Space
+        const root = s.s( 'root' )
         let mappedCalls = 0;
         const mapped = root.map( v => {
             ++ mappedCalls;
@@ -34,7 +41,7 @@ describe( "Stream", () =>
         let withCalls = 0;
         let onCalls = 0;
         mapped
-            .with( root, ( v, m ) => {
+            .with( root, ( v : string, m : string ) => {
                 ++ withCalls;
                 return v + "|" + m + "+with";
             } )
@@ -59,18 +66,20 @@ describe( "Stream", () =>
         expect( withCalls ).eql( 2 );
         expect( onCalls ).eql( 2 );
         
+        s.clear()
         done();
     } );
     
     it( "with", done =>
     {
-        const r1 = new Stream( "r1" );
-        const r2 = new Stream( "r2" );
+        const s = new Space
+        const r1 = s.s( 'r1' )
+        const r2 = s.s( 'r2' )
         let onWithCalls = 0;
         r1
             .with(
                 r2,
-                ( l, r ) => l + "|with|" + r
+                ( l : string, r : string ) => l + "|with|" + r
             )
             .on( v => {
                 ++ onWithCalls;
@@ -93,13 +102,15 @@ describe( "Stream", () =>
         expect( onWithCalls ).eql( 1 );
         r1.next( "l2" );
         expect( onWithCalls ).eql( 2 );
+        s.clear()
         done();
     } );
     
     it( "to", done =>
     {
-        const source = new Stream( "source" );
-        const target = new Stream( "target" );
+        const s = new Space
+        const source = s.s( "source" )
+        const target = s.s( "target" )
         source.to( target );
         
         let onTargetCalls = 0;
@@ -110,14 +121,16 @@ describe( "Stream", () =>
         expect( onTargetCalls ).eql( 0 );
         source.next( "s" );
         expect( onTargetCalls ).eql( 1 );
+        s.clear()
         done();
     } );
     
     it( "merge", done =>
     {
-        const left = new Stream( "left" );
-        const right = new Stream( "right" );
-        let e = merge => expect( merge ).eql( "l" );
+        const s = new Space
+        const left = s.s( "left" )
+        const right = s.s( "right" )
+        let e = ( merge : string ) => expect( merge ).eql( "l" );
         let mergeCalls = 0;
         left
             .merge( right )
@@ -131,15 +144,17 @@ describe( "Stream", () =>
         e = merge => expect( merge ).eql( "r" );
         right.next( "r" );
         expect( mergeCalls ).eql( 2 );
+        s.clear()
         done();
     } );
     
     it( "map merge", done =>
     {
-        const left = new Stream( "left" );
-        const right = new Stream( "right" );
+        const s = new Space
+        const left = s.s( "left" )
+        const right = s.s( "right" )
         let onCalls = 0;
-        let e = v => expect( v ).eql( true );
+        let e = ( v : boolean ) => expect( v ).eql( true );
         left
             .map( () => true )
             .merge( right.map( () => false ) )
@@ -153,12 +168,14 @@ describe( "Stream", () =>
         e = v => expect( v ).eql( false );
         right.next( "r" );
         expect( onCalls ).eql( 2 );
+        s.clear()
         done();
     } );
     
     it( "diamond merge", done =>
     {
-        const root = new Stream( "root" );
+        const s = new Space
+        const root = s.s( "root" )
         const left = root.map( v => v + "+lm" );
         const right = root.map( v => v + "+rm" );
         let onMergeCalls = 0;
@@ -180,19 +197,21 @@ describe( "Stream", () =>
         //actually it's an undefined behaviour: may be 0 - it's one because of topological sort which invokes merge() only once in the end of propagation:
         expect( onMergeCalls ).eql( 1 );
         expect( expectations.length ).eql( 1 );
+        s.clear()
         done();
     } );
     
     it( "diamond any", done =>
     {
-        const root = new Stream( "root" );
+        const s = new Space
+        const root = s.s( "root" )
         const left = root.map( v => v + "+la" );
         const right = root.map( v => v + "+ra" );
         let onAnyCalls = 0;
         left
             .any(
                 right,
-                ( l, r ) => l + "|" + r + "+any"
+                ( l : string, r : string ) => l + "|" + r + "+any"
             )
             .on( v =>
             {
@@ -202,19 +221,21 @@ describe( "Stream", () =>
         expect( onAnyCalls ).eql( 0 );
         root.next( "r" );
         expect( onAnyCalls ).eql( 1 );
+        s.clear()
         done();
     } );
     
     it( "any", done =>
     {
-        const r1 = new Stream( "r1" );
-        const r2 = new Stream( "r2" );
+        const s = new Space
+        const r1 = s.s( "r1" )
+        const r2 = s.s( "r2" )
         let onAnyCalls = 0;
-        let e = v => expect( v ).eql( "rl|any|undefined" );
+        let e = ( v : string ) => expect( v ).eql( "rl|any|undefined" );
         r1
             .any(
                 r2,
-                ( l, r ) => l + "|any|" + r
+                ( l : string, r : string ) => l + "|any|" + r
             )
             .on( v => {
                 ++ onAnyCalls;
@@ -226,12 +247,14 @@ describe( "Stream", () =>
         e = v => expect( v ).eql( "rl|any|rr" );
         r2.next( "rr" );
         expect( onAnyCalls ).eql( 2 );
+        s.clear()
         done();
     } );
     
     it( "filter", done =>
     {
-        const root = new Stream( "root" );
+        const s = new Space
+        const root = s.s( "root" )
         let onFilterCalls = 0;
         root
             .filter( v => v % 2 == 0 )
@@ -245,12 +268,14 @@ describe( "Stream", () =>
         root.next( 4 );
         root.next( 5 );
         expect( onFilterCalls ).eql( 2 );
+        s.clear()
         done();
     } );
     
     it( "delay", done =>
     {
-        const root = new Stream( "root" );
+        const s = new Space
+        const root = s.s( "root" )
         let onDelayCalls = 0;
         root
             .delay( 0.200 * 1000 )
@@ -261,6 +286,7 @@ describe( "Stream", () =>
         setTimeout(
             () => {
                 expect( onDelayCalls ).eql( 1 );
+                s.clear()
                 done();
             },
             0.300 * 1000
@@ -273,7 +299,8 @@ describe( "Stream", () =>
     it( "delay overlap", done =>
     {
         //ensure that consecutive delayed calls having previous values regardless of source timeline:
-        const root = new Stream( "root" );
+        const s = new Space
+        const root = s.s( "root" )
         let onDelayCalls = 0;
         root
             .delay( 0.100 * 1000 )
@@ -282,7 +309,7 @@ describe( "Stream", () =>
                 expect( v ).eql( onDelayCalls );
                 expect( onDelayCalls ).most( 4 );
             } );
-        const source = new Stream( "source" );
+        const source = s.s( "source" )
         source.delay( 0.030 * 1000 ).on( () => root.next( 1 ) );
         source.delay( 0.060 * 1000 ).on( () => root.next( 2 ) );
         source.delay( 0.090 * 1000 ).on( () => root.next( 3 ) );
@@ -290,6 +317,7 @@ describe( "Stream", () =>
         setTimeout(
             () => {
                 expect( onDelayCalls ).eql( 4 );
+                s.clear()
                 done();
             },
             0.400 * 1000
@@ -299,7 +327,8 @@ describe( "Stream", () =>
     
     it( "delay destructor", done =>
     {
-        const root = new Stream( "root" );
+        const s = new Space
+        const root = s.s( "root" )
         root
             .delay( 0.300 * 1000 )
             .on( v => { throw "should be canceled" } );
@@ -309,6 +338,7 @@ describe( "Stream", () =>
         setTimeout(
             () => {
                 root.destructor();
+                s.clear()
                 done();
             },
             0.050 * 1000
@@ -317,7 +347,8 @@ describe( "Stream", () =>
     
     it( "take", done =>
     {
-        const root = new Stream( "root" );
+        const s = new Space
+        const root = s.s( "root" )
         let onTakeCalls = 0;
         root
             .take( 3 )
@@ -332,12 +363,14 @@ describe( "Stream", () =>
         root.next( 5 );
         root.next( 6 );
         expect( onTakeCalls ).eql( 3 );
+        s.clear()
         done();
     } );
     
     it( "pair", done =>
     {
-        const root = new Stream( "root" );
+        const s = new Space
+        const root = s.s( "root" )
         let onPairCalls = 0;
         root
             .pair()
@@ -353,12 +386,14 @@ describe( "Stream", () =>
         root.next( 4 );
         root.next( 5 );
         expect( onPairCalls ).eql( 4 );
+        s.clear()
         done();
     } );
     
     it( "changed", done =>
     {
-        const root = new Stream( "root" );
+        const s = new Space
+        const root = s.s( "root" )
         let onChangedCalls = 0;
         root
             .changed()
@@ -374,13 +409,15 @@ describe( "Stream", () =>
         root.next( 3 );
         root.next( 4 );
         expect( onChangedCalls ).eql( 4 );
+        s.clear()
         done();
     } );
     
     it( "changed compare", done =>
     {
         //"changed" when even -> <- odd:
-        const root = new Stream( "root" );
+        const s = new Space
+        const root = s.s( "root" )
         let onChangedCalls = 0;
         root
             .changed( ( previous, pending ) => previous % 2 == 0 ? pending % 2 == 0 : pending % 2 == 1 )
@@ -394,30 +431,32 @@ describe( "Stream", () =>
         root.next( 2 );
         root.next( 3 );
         expect( onChangedCalls ).eql( 3 );
+        s.clear()
         done();
     } );
     
     //all children must resolve without dropping sides through their parents:
     it( "multiple children", done =>
     {
-        const root = new Stream( "root" );
-        const side = new Stream( "side" );
+        const s = new Space
+        const root = s.s( "root" )
+        const side = s.s( "side" )
         
         let onRootSideCalls = 0;
-        let le;
+        let le : any;
         root
             .map( v => v + ".l_map" )
-            .any( side, ( r, s ) => r + s + ".l_any" )
+            .any( side, ( r : string, s : string ) => r + s + ".l_any" )
             .on( v => {
                 ++ onRootSideCalls;
                 le( v );
             } );
         
         let onSideRootCalls = 0;
-        let re;
+        let re : any;
         side
             .map( v => v + ".r_map" )
-            .any( root, ( s, r ) => s + r + ".r_any" )
+            .any( root, ( s : string, r : string ) => s + r + ".r_any" )
             .on( v => {
                 ++ onSideRootCalls;
                 re( v );
@@ -426,24 +465,26 @@ describe( "Stream", () =>
         expect( onRootSideCalls ).eql( 0 );
         expect( onSideRootCalls ).eql( 0 );
         
-        le = v => expect( v ).eql( "r.l_mapundefined.l_any" );
-        re = v => expect( v ).eql( "undefinedr.r_any" );
+        le = ( v : string ) => expect( v ).eql( "r.l_mapundefined.l_any" );
+        re = ( v : string ) => expect( v ).eql( "undefinedr.r_any" );
         root.next( "r" );
         expect( onRootSideCalls ).eql( 1 );
         expect( onSideRootCalls ).eql( 1 );
         
-        le = v => expect( v ).eql( "r.l_maps.l_any" );
-        re = v => expect( v ).eql( "s.r_mapr.r_any" );
+        le = ( v : string ) => expect( v ).eql( "r.l_maps.l_any" );
+        re = ( v : string ) => expect( v ).eql( "s.r_mapr.r_any" );
         side.next( "s" );
         expect( onRootSideCalls ).eql( 2 );
         expect( onSideRootCalls ).eql( 2 );
+        s.clear()
         done();
     } );
     
     it.skip( "one-directional edges", done =>
     {
-        const left = new Stream( "left" );
-        const right = new Stream( "right" );
+        const s = new Space
+        const left = s.s( "left" )
+        const right = s.s( "right" )
         
         let onLeftMapCalls = 0;
         left
@@ -463,7 +504,7 @@ describe( "Stream", () =>
         
         let onWithCalls = 0;
         left
-            .with( right, ( l, r ) => l + "|with|" + r )
+            .with( right, ( l : string, r : string ) => l + "|with|" + r )
             .on( v => {
                 ++ onWithCalls;
                 expect( v ).eql( "dunno yet" );
@@ -502,7 +543,7 @@ describe( "Stream", () =>
         a.next( "a" );
         
         const original = root
-            .with( a, ( root, a ) => root + "_original_" + a )
+            .with( a, ( root : string, a : string ) => root + "_original_" + a )
             .name( space, "original" );
         
         let onOriginalCalls = 0;
@@ -521,7 +562,7 @@ describe( "Stream", () =>
         space.s( "original" )
             .any(
                 b,
-                ( original, b ) => original + "_altered_" + b
+                ( original : string, b : string ) => original + "_altered_" + b
             )
             .to( alteredOriginal );
         b.next( "b" );
@@ -531,7 +572,7 @@ describe( "Stream", () =>
         done();
     } );
     
-    it( "one-sided edges are not traversed when removing resolved parents", done =>
+    it.skip( "one-sided edges are not traversed when removing resolved parents", done =>
     {
     } );
     
