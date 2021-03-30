@@ -1,36 +1,22 @@
 
-import Stream from "../stream";
-import Edge from "../edge";
-import Args from "../args";
-import Operator from "../operator";
+import Edge from "../edge"
+import Operator from "../operator"
 
-export default function( ... params : any[] )
-{
-    const args = Args( "take", params, { maxTargets : 0, needNumber : true } );
-    
-    const operator = new Operator( apply, 'take' )
-    //@ts-ignore
-    operator.number = args.number
-    
-    const r = new Stream( args.source._name + ".take" );
-    new Edge(
-        args.source,
-        r,
-        operator
-    );
-    return r;
+export default class Take extends Operator {
+    times : number
+    took : number = 0
+
+    constructor( times : number ) {
+        super( apply, 'take' )
+        this.times = times
+    }
 }
 
 function apply( edge : Edge )
 {
-    //@ts-ignore
-    if ( ! edge.operator.took )
-        //@ts-ignore
-        edge.operator.took = 0;
-    //@ts-ignore
-    ++ edge.operator.took;
-    //@ts-ignore
-    if ( edge.operator.took > edge.operator.number )
+    const take = edge.operator as Take
+    ++ take.took
+    if ( take.took > take.times )
     {
         return false;
     }

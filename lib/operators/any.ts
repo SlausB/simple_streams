@@ -16,7 +16,7 @@ export default function( ... params : any[] )
     
     const r = new Stream( args.source._name + ".any" );
     r.parents = [];
-    const glue = t => {
+    const glue = ( t : Stream ) => {
         new Edge(
             t,
             r,

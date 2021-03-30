@@ -12,7 +12,7 @@ export default class Propagating
         if ( this.children )
             for ( const child of this.children )
                 child.destructor( this, undefined );
-        //can't just delete children here because pend() relies on it, so moving the processing load here because this operation is suppoed to occur much less frequently:
+        //can't just delete children here because pend() relies on it, so moving the processing load here because this operation is supposed to occur much less frequently:
         //delete this.children;
         this.children.length = 0
         
@@ -24,7 +24,7 @@ export default class Propagating
         this.parents.length = 0
     }
     
-    propagate( v )
+    propagate( v : any )
     {
         this.value = v;
         if ( pend( this ) )
@@ -68,13 +68,14 @@ export default class Propagating
             
             //say that chosen node was resolved:
             L.push( resolving.child );
-            //removed all the parents whose [all] children was resolved:
+            //remove all the parents whose [all] children was resolved:
             for ( const parentEdge of resolving.child.parents )
             {
                 if ( parentEdge.parent.childrenResolved )
                 {
                     const i = S.indexOf( parentEdge.parent );
-                    if ( i >= 0 ) S.splice( i, 1 );
+                    if ( i >= 0 )
+                        S.splice( i, 1 );
                 }
             }
             
@@ -101,7 +102,7 @@ export default class Propagating
     }
     
     /** Returns true if all the parents of current node was already resolved in the current propagation course and so current node is "free" of dependencies and can also be resolved.*/
-    pending( fromEdge )
+    pending( fromEdge : Edge )
     {
         for ( const parentEdge of this.parents )
         {
@@ -117,14 +118,14 @@ export default class Propagating
 }
 
 //nodes whose children need to be resolved yet in current propagation:
-let S = [];
+let S : Propagating[] = [];
 //nodes which was already resolved in the current propagation:
-let L = [];
+let L : Propagating[] = [];
 
 //actually the same as L.length > 0 || S.length > 0
 let propagating = false;
 
-function apply( edge )
+function apply( edge : Edge )
 {
     try
     {
@@ -163,7 +164,7 @@ function pend( node : Propagating )
     return false;
 }
 
-function resolved( node )
+function resolved( node : Propagating )
 {
     return L.indexOf( node ) >= 0;
 }

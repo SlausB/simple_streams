@@ -1,5 +1,6 @@
 
 import Operator from './operator'
+import Propagating from './propagating'
 import Stream from './stream'
 
 /** That's what any operator creates besides spawning another stream. Connection between two streams where "parent" is the one whose method was called to make an operator (and any parameters) and "child" is the spawned stream.
@@ -25,12 +26,13 @@ export default class Edge
         child.parents.push( this );
     }
     
-    destructor( fromParent, fromChild )
+    destructor( fromParent ?: Propagating, fromChild ?: Propagating )
     {
         //remove from parent:
         if ( fromChild )
         {
             this.parent.children.splice( this.parent.children.indexOf( this ), 1 );
+            //@ts-ignore
             delete this.parent;
         }
         
@@ -38,6 +40,7 @@ export default class Edge
         if ( fromParent )
         {
             this.child.parents.splice( this.child.parents.indexOf( this ), 1 );
+            //@ts-ignore
             delete this.child;
         }
         
@@ -45,6 +48,7 @@ export default class Edge
         {
             if ( this.operator.destructor )
                 this.operator.destructor();
+            //@ts-ignore
             delete this.operator;
         }
     }

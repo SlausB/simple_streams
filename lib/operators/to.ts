@@ -1,30 +1,14 @@
+import Edge from "../edge"
+import Operator from "../operator"
 
-import Stream from "../stream";
-import Edge from "../edge";
-import Args from "../args";
-import Operator from '../operator'
-
-export default function( ... params : any[] )
-{
-    const args = Args( "to", params, { minTargets : 1 } );
-    
-    const operator = new Operator( apply, 'to' )
-    
-    for ( const t of args.targets )
-    {
-        new Edge(
-            args.source,
-            t,
-            operator
-        );
+export default class To extends Operator {
+    constructor() {
+        super( apply, 'to' )
     }
-    
-    return args.source;
 }
 
-function apply( edge )
+function apply( edge : Edge )
 {
     edge.child.value = edge.parent.value;
     return true;
 }
-

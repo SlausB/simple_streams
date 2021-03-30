@@ -6,7 +6,11 @@ export class ParsedArgs {
     source : Stream
     targets : Stream[] = []
     f : any = undefined
-    number : number = undefined
+    number ?: number = undefined
+
+    constructor( source : Stream ) {
+        this.source = source
+    }
 }
 
 /** Parse arguments for arbitrary operator semantic with specified requirements.*/
@@ -18,8 +22,7 @@ export default function Args( operator : string, args : any[], options : any )
     if ( ! ( source instanceof Stream ) )
         throw "Source must be an instance of Stream.";
     
-    const r = new ParsedArgs
-    r.source = source
+    const r = new ParsedArgs( source )
 
     const { minTargets, maxTargets, canF, needF, canNumber, needNumber } = options
     

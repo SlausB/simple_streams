@@ -1,8 +1,7 @@
 
-import Stream from "../../stream";
-import Space from "../../space";
-const chai = require( "chai" );
-const expect = chai.expect;
+import Stream from "../../lib/stream";
+import Space from "../../lib/space";
+import { expect } from 'chai'
 
 describe( "Stream", () =>
 {
@@ -508,8 +507,10 @@ describe( "Stream", () =>
         
         let onOriginalCalls = 0;
         original.on( v => {
-            if ( onOriginalCalls == 0 ) expect( v ).eql( "root_original_a" );
-            if ( onOriginalCalls == 1 ) expect( v ).eql( "root_original_a_altered_b" );
+            if ( onOriginalCalls == 0 )
+                expect( v ).eql( "root_original_a" );
+            if ( onOriginalCalls == 1 )
+                expect( v ).eql( "root_original_a_altered_b" );
             ++ onOriginalCalls;
         } );
         root.next( "root" );
@@ -518,7 +519,10 @@ describe( "Stream", () =>
         const b = space.s( "b" );
         const alteredOriginal = space.s( "original" ).alter();
         space.s( "original" )
-            .any( b, ( original, b ) => original + "_altered_" + b )
+            .any(
+                b,
+                ( original, b ) => original + "_altered_" + b
+            )
             .to( alteredOriginal );
         b.next( "b" );
         

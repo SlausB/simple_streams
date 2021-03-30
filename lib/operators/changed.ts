@@ -1,33 +1,13 @@
-
-import Stream from "../stream";
 import Edge from "../edge";
-import Args from "../args";
 import Operator from "../operator";
 
-class ChangedOperator extends Operator {
-    f : Function
+export default class Changed extends Operator {
+    f ?: Function
     constructor( f : Function ) {
         super( apply, 'changed' )
         this.f = f
         this.destructor = () => delete this.f
     }
-}
-
-export default function( ... params : any[] )
-{
-    const args = Args( "changed", params, { maxTargets : 0, canF : true } );
-    
-
-    const operator = new ChangedOperator( args.f )
-    operator.destructor = () => delete operator.f;
-    
-    const r = new Stream( args.source._name + ".changed" );
-    new Edge(
-        args.source,
-        r,
-        operator
-    );
-    return r;
 }
 
 function apply( edge : Edge )
@@ -36,7 +16,7 @@ function apply( edge : Edge )
     //@ts-ignore
     if ( edge.had )
     {
-        const operator = edge.operator as ChangedOperator
+        const operator = edge.operator as Changed
         if ( operator.f )
             changed = ! operator.f( edge.child.value, edge.parent.value );
         else

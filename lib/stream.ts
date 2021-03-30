@@ -1,46 +1,39 @@
 
-import Propagating from "./propagating";
+import Propagating from "./propagating"
 import Edge from './edge'
 import Space from './space'
 
-import With    from "./operators/with";
-import Any     from "./operators/any";
-import Changed from "./operators/changed";
-import Delay   from "./operators/delay";
-import Filter  from "./operators/filter";
-import Map     from "./operators/map";
-import Merge   from "./operators/merge";
-import On      from "./operators/on";
-import Pair    from "./operators/pair";
-import Take    from "./operators/take";
-import To      from "./operators/to";
+import With    from "./operators/with"
+import Any     from "./operators/any"
+import Changed from "./operators/changed"
+import Delay   from "./operators/delay"
+import Filter  from "./operators/filter"
+import Map     from "./operators/map"
+import Merge   from "./operators/merge"
+import Pair    from "./operators/pair"
+import Take    from "./operators/take"
+import To      from "./operators/to"
 import Do      from "./operators/do"
 
 export default class Stream extends Propagating
 {
+    space : Space
     _name : string
     _description : string
     children : Edge[] = []
 
 
-    constructor( name : string, description = '' )
+    constructor( space : Space, name : string, description = '' )
     {
         super();
         
+        this.space = space
         this._name = name;
         this._description = description;
     }
     
-    destructor()
-    {
-        delete this._name;
-        delete this._description;
-        
-        super.destructor();
-    }
-    
-    description( description : string ) {
-        if (!description) {
+    description( description ?: string ) {
+        if ( ! description ) {
             return this._description;
         }
         
@@ -61,7 +54,7 @@ export default class Stream extends Propagating
     
     alter()
     {
-        const r = new Stream( "altered_" + this._name );
+        const r = new Stream( this.space, "altered_" + this._name );
         
         for ( const child of this.children )
             child.parent = r;
@@ -71,7 +64,7 @@ export default class Stream extends Propagating
         return r;
     }
     
-    next< Type >( v : Type ) {
+    next( v ?: any ) {
         this.propagate( v )
         return this
     }
@@ -82,96 +75,143 @@ export default class Stream extends Propagating
         return this;
     }
     
-    with(
-        ... args : any[],
-        f : ( )
-    )
+    with( ... args : any[] )
     {
-        return With( this, ... args );
+        return With( ... args )
     }
-    withLatestFrom() { return this.with.apply( this, arguments ); }
+    withLatestFrom( ... args : Parameters< Stream['with'] > ) { return this.with.apply( this, args ) }
     
     /** When any of streams update (both this and specified).*/
     any( ... args : any[] )
     {
-        return Any( this, ... args );
+        return Any( ... args )
     }
-    combineLatest( ... args : any[] ) { return this.any.apply( this, args ); }
-    static any( ... args : any[] )
-    {
-        return Any( ... args );
-    }
-    static combineLatest( ... args : any[] ) { return Stream.any.apply( null, args ); }
+    combineLatest( ...args: Parameters<Stream["any"]> ) { return this.any.apply( this, args ) }
     
-    merge( ... args : any[] )
+    /** That's bad operator - try to avoid using it.*/
+    merge( ... args : Stream[] )
     {
-        return Merge( this, ... args );
-    }
-    static merge( ... args : any[] )
-    {
-        return Merge( ... args );
-    }
-    
-    filter( ... args : any[] )
-    {
-        return Filter( this, ... args );
-    }
-    
-    take( ... args : any[] )
-    {
-        return Take( this, ... args );
+        const r = new Stream( this.space, this._name + ".merge" )
+        r.parents = [];
+        const glue = ( t : Stream ) => {
+            new Edge(
+                t,
+                r,
+                new Merge,
+            );
+        };
+        glue( this );
+        for ( const t of args )
+            glue( t );
+        return r;
     }
     
-    map( ... args : any[] )
+    filter( f : ( value : any ) => boolean )
     {
-        return Map( this, ... args );
+        const r = new Stream( this.space, this._name + ".filter" );
+        new Edge(
+            this,
+            r,
+            new Filter( f ),
+        );
+        return r;
+    }
+    
+    take( times : number )
+    {
+        const r = new Stream( this.space, this._name + ".take" );
+        new Edge(
+            this,
+            r,
+            new Take( times ),
+        );
+        return r;
+    }
+    
+    map( f : ( value : any ) => any )
+    {
+        const r = new Stream( this.space, this._name + ".map" );
+        new Edge(
+            this,
+            r,
+            new Map( f ),
+        );
+        return r
+    }
+    
+    delay( milliseconds : number )
+    {
+        const operator = new Delay( milliseconds )
+        
+        const r = new Stream( this.space, this._name + ".delay" );
+        new Edge(
+            this,
+            r,
+            operator
+        );
+        return r;
     }
     
     /** Subscribe. Any calls to next() here won't obey to atomic updates rules.*/
-    on( ... args : any[] )
+    do( f : ( value : any ) => any )
     {
-        return On( this, ... args );
+        const r = new Stream( this.space, this._name + ".do" );
+        new Edge(
+            this,
+            r,
+            new Do( f ),
+        );
+        return r;
     }
-    subscribe( t : any )
-    {
-        if ( t instanceof Stream )
-            return this.to( t );
-        return this.on( t );
+    on( ... args : Parameters<Stream['do']> ) {
+        return this.do.apply( this, args )
     }
-    
-    do( ... args : any[] )
-    {
-        return Do( this, ... args )
-    }
-    
-    delay( ... args : any[] )
-    {
-        return Delay( this, ... args );
+    subscribe( target : Stream | string | ( ( value : any ) => any ) ) {
+        if ( typeof target === 'function' )
+            return this.on( target as ( ( value : any ) => any ) )
+        return this.to( target as ( Stream | string ) )
     }
     
-    pair( ... args : any[] )
+    pair()
     {
-        return Pair( this, ... args );
+        const r = new Stream( this.space, this._name + ".pair" )
+        new Edge(
+            this,
+            r,
+            new Pair,
+        );
+        return r;
     }
-    pairwise( ... args : any[] ) { return this.pair.apply( this, args ); }
+    pairwise( ... args : Parameters<Stream['pair']> ) { return this.pair.apply( this, args ) }
     
-    changed( ... args : any[] )
+    changed( f : ( prev_v : any, new_v : any ) => boolean )
     {
-        return Changed( this, ... args );
+        const r = new Stream( this.space, this._name + ".changed" );
+        new Edge(
+            this,
+            r,
+            new Changed( f ),
+        );
+        return r;
     }
-    distinctUntilChanged() { return this.changed.apply( this, arguments ); };
+    changes             ( ... args : Parameters<Stream['changed']> ) { return this.changed.apply( this, args ) }
+    distinctUntilChanged( ... args : Parameters<Stream['changed']> ) { return this.changed.apply( this, args ) }
     
-    to( ... args : any[] )
+    to( target : Stream | string )
     {
-        return To( this, ... args );
+        new Edge(
+            this,
+            literal_stream( target, this.space ),
+            new To,
+        )
+        return target;
     }
 }
 
-type FlattenStreams<T> = T extends Array<infer Item> ? Item : T
-type StreamParam = Stream | string
-type Streams = [ StreamParam ]
-function TestWith(
-    s : StreamParam,
-    ... StreamParam[],
-)
+function literal_stream( s : Stream | string, space : Space ) {
+    if ( typeof s === 'string' || s instanceof String ) {
+        return space.s( s as string )
+    }
+    return s
+}
 
