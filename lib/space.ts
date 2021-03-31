@@ -1,6 +1,10 @@
 
 import Stream from "./stream";
 
+export const SETTINGS = {
+    try_catch_apply : false,
+}
+
 export default class Space
 {
     name : String

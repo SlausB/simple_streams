@@ -78,16 +78,16 @@ export default class Stream extends Propagating
     
     with( ... args : any[] )
     {
-        return With( this.space, ... args )
+        return With( this.space, this, ... args )
     }
-    withLatestFrom( ... args : Parameters< Stream['with'] > ) { return this.with.apply( this, args ) }
+    withLatestFrom( ... args : Parameters< Stream['with'] > ) { return this.with( ... args ) }
     
     /** When any of streams update (both this and specified).*/
     any( ... args : any[] )
     {
-        return Any( this.space, ... args )
+        return Any( this.space, this, ... args )
     }
-    combineLatest( ...args: Parameters<Stream["any"]> ) { return this.any.apply( this, args ) }
+    combineLatest( ...args: Parameters<Stream["any"]> ) { return this.any( ... args ) }
     
     /** That's bad operator - try to avoid using it.*/
     merge( ... args : Stream[] )
@@ -165,7 +165,7 @@ export default class Stream extends Propagating
         return r;
     }
     on( ... args : Parameters<Stream['do']> ) {
-        return this.do.apply( this, args )
+        return this.do( ... args )
     }
     subscribe( target : Stream | string | ( ( value : any ) => any ) ) {
         if ( typeof target === 'function' )

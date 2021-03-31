@@ -10,11 +10,26 @@ describe( "Stream", () =>
         const s = new Space
         const root = s.s( 'root' )
         root.on( () => {
-            s.clear()
             done()
         } )
         root.next();
     } );
+
+    it( "map", done =>
+    {
+        const s = new Space
+        const root = s.s( 'root' )
+        let on_value : any = undefined
+        root
+            .map( ( v : string ) => {
+                expect( v ).eql( 'map' )
+                return 'chained'
+            })
+            .on( ( v : any ) => on_value = v )
+        root.next( 'map' )
+        expect( on_value ).eql( 'chained' )
+        done()
+    })
     
     it( "multiple children with propagation cancel", done =>
     {
@@ -25,7 +40,6 @@ describe( "Stream", () =>
         root.on( () => ++ onCalls );
         root.next( "r" );
         expect( onCalls ).eql( 2 );
-        s.clear()
         done();
     } );
     
@@ -66,7 +80,6 @@ describe( "Stream", () =>
         expect( withCalls ).eql( 2 );
         expect( onCalls ).eql( 2 );
         
-        s.clear()
         done();
     } );
     
@@ -102,7 +115,6 @@ describe( "Stream", () =>
         expect( onWithCalls ).eql( 1 );
         r1.next( "l2" );
         expect( onWithCalls ).eql( 2 );
-        s.clear()
         done();
     } );
     
@@ -121,7 +133,6 @@ describe( "Stream", () =>
         expect( onTargetCalls ).eql( 0 );
         source.next( "s" );
         expect( onTargetCalls ).eql( 1 );
-        s.clear()
         done();
     } );
     
@@ -144,7 +155,6 @@ describe( "Stream", () =>
         e = merge => expect( merge ).eql( "r" );
         right.next( "r" );
         expect( mergeCalls ).eql( 2 );
-        s.clear()
         done();
     } );
     
@@ -168,7 +178,6 @@ describe( "Stream", () =>
         e = v => expect( v ).eql( false );
         right.next( "r" );
         expect( onCalls ).eql( 2 );
-        s.clear()
         done();
     } );
     
@@ -197,7 +206,6 @@ describe( "Stream", () =>
         //actually it's an undefined behaviour: may be 0 - it's one because of topological sort which invokes merge() only once in the end of propagation:
         expect( onMergeCalls ).eql( 1 );
         expect( expectations.length ).eql( 1 );
-        s.clear()
         done();
     } );
     
@@ -221,7 +229,6 @@ describe( "Stream", () =>
         expect( onAnyCalls ).eql( 0 );
         root.next( "r" );
         expect( onAnyCalls ).eql( 1 );
-        s.clear()
         done();
     } );
     
@@ -247,7 +254,6 @@ describe( "Stream", () =>
         e = v => expect( v ).eql( "rl|any|rr" );
         r2.next( "rr" );
         expect( onAnyCalls ).eql( 2 );
-        s.clear()
         done();
     } );
     
@@ -268,7 +274,6 @@ describe( "Stream", () =>
         root.next( 4 );
         root.next( 5 );
         expect( onFilterCalls ).eql( 2 );
-        s.clear()
         done();
     } );
     
@@ -286,7 +291,6 @@ describe( "Stream", () =>
         setTimeout(
             () => {
                 expect( onDelayCalls ).eql( 1 );
-                s.clear()
                 done();
             },
             0.300 * 1000
@@ -317,7 +321,6 @@ describe( "Stream", () =>
         setTimeout(
             () => {
                 expect( onDelayCalls ).eql( 4 );
-                s.clear()
                 done();
             },
             0.400 * 1000
@@ -338,7 +341,6 @@ describe( "Stream", () =>
         setTimeout(
             () => {
                 root.destructor();
-                s.clear()
                 done();
             },
             0.050 * 1000
@@ -363,7 +365,6 @@ describe( "Stream", () =>
         root.next( 5 );
         root.next( 6 );
         expect( onTakeCalls ).eql( 3 );
-        s.clear()
         done();
     } );
     
@@ -386,7 +387,6 @@ describe( "Stream", () =>
         root.next( 4 );
         root.next( 5 );
         expect( onPairCalls ).eql( 4 );
-        s.clear()
         done();
     } );
     
@@ -409,7 +409,6 @@ describe( "Stream", () =>
         root.next( 3 );
         root.next( 4 );
         expect( onChangedCalls ).eql( 4 );
-        s.clear()
         done();
     } );
     
@@ -431,7 +430,6 @@ describe( "Stream", () =>
         root.next( 2 );
         root.next( 3 );
         expect( onChangedCalls ).eql( 3 );
-        s.clear()
         done();
     } );
     
@@ -476,7 +474,6 @@ describe( "Stream", () =>
         side.next( "s" );
         expect( onRootSideCalls ).eql( 2 );
         expect( onSideRootCalls ).eql( 2 );
-        s.clear()
         done();
     } );
     

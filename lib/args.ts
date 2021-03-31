@@ -47,7 +47,7 @@ export default function Args(
             throw new Error( operator + ": At most " + maxTargets + " target streams are allowed." )
     }
     
-    for ( let i = 0; i < args.length; ++ i )
+    for ( let i = 1; i < args.length; ++ i )
     {
         const arg = args[ i ];
         if ( arg instanceof Stream )

@@ -1,5 +1,7 @@
 import Edge from "./edge";
 
+import { SETTINGS } from './space'
+
 export default class Propagating
 {
     /** last propagated stream value */
@@ -127,14 +129,19 @@ let propagating = false;
 
 function apply( edge : Edge )
 {
-    try
-    {
-        return edge.operator.apply( edge );
+    if ( SETTINGS.try_catch_apply ) {
+        try
+        {
+            return edge.operator.apply( edge );
+        }
+        catch ( e )
+        {
+            console.error( "apply() failed:", e.message, e );
+            return false;
+        }
     }
-    catch ( e )
-    {
-        console.error( "apply() failed:", e.message, e );
-        return false;
+    else {
+        return edge.operator.apply( edge )
     }
 }
 
