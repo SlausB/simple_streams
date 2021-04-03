@@ -6,3 +6,4 @@ function just_function() {
 
 const space = new Space
 space.s( 'function_call_result_type', just_function() )
+    

@@ -21,10 +21,16 @@ function compare( source : string, expectation : string ) {
 }
 
 describe( 'Types extraction', () => {
-    it.only( 'boolean', () => {
+    it( 'boolean', () => {
         compare(
             'test/streams_types/boolean.ts',
             'test/streams_types/boolean_expectation.json',
+        )
+    })
+    it.only( 'stream', () => {
+        compare(
+            'test/streams_types/stream.ts',
+            'test/streams_types/stream_expectation.json',
         )
     })
     it( 'function_result_argument', () => {

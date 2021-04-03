@@ -37,8 +37,7 @@ function match_stream_s(
     checker : ts.TypeChecker,
 ) : boolean
 {
-    const file = find_parent( node, ts.SyntaxKind.SourceFile ) as ts.SourceFile
-    if ( is_lib_file( file ) )
+    if ( is_lib_file( find_parent( node, ts.SyntaxKind.SourceFile ) as ts.SourceFile ) )
         return false
 
     if ( ! ts.isCallExpression( node ) )

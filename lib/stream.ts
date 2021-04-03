@@ -33,19 +33,15 @@ export default class Stream extends Propagating
         this._description = description;
     }
     
-    description( description ?: string ) {
-        if ( ! description ) {
-            return this._description;
-        }
-        
+    description( description : string ) : Stream {
         this._description = description;
         return this;
     }
-    desc( ...args: Parameters<Stream["description"]> ) {
+    desc( ...args: Parameters<Stream["description"]> ) : Stream {
         return this.description.apply( this, args )
     }
     
-    name( space : Space, name : string )
+    name( space : Space, name : string ) : Stream
     {
         //cannot just replace the name of current stream because there already might exist a stream with such name, so just redirecting:
         const s = space.s( name )
@@ -53,7 +49,7 @@ export default class Stream extends Propagating
         return s
     }
     
-    alter()
+    alter() : Stream
     {
         const r = new Stream( this.space, "altered_" + this._name );
         
@@ -65,32 +61,32 @@ export default class Stream extends Propagating
         return r;
     }
     
-    next( v ?: any ) {
+    next( v ?: any ) : Stream {
         this.propagate( v )
         return this
     }
     
-    log()
+    log() : Stream
     {
         this.on( ( v : any ) => console.log( this._name, ":", v ) );
         return this;
     }
     
-    with( ... args : any[] )
+    with( ... args : any[] ) : Stream
     {
         return With( this.space, this, ... args )
     }
     withLatestFrom( ... args : Parameters< Stream['with'] > ) { return this.with( ... args ) }
     
     /** When any of streams update (both this and specified).*/
-    any( ... args : any[] )
+    any( ... args : any[] ) : Stream
     {
         return Any( this.space, this, ... args )
     }
     combineLatest( ...args: Parameters<Stream["any"]> ) { return this.any( ... args ) }
     
     /** That's bad operator - try to avoid using it.*/
-    merge( ... args : Stream[] )
+    merge( ... args : Stream[] ) : Stream
     {
         const r = new Stream( this.space, this._name + ".merge" )
         r.parents = [];
@@ -107,7 +103,7 @@ export default class Stream extends Propagating
         return r;
     }
     
-    filter( f : ( value : any ) => boolean )
+    filter( f : ( value : any ) => boolean ) : Stream
     {
         const r = new Stream( this.space, this._name + ".filter" );
         new Edge(
@@ -118,7 +114,7 @@ export default class Stream extends Propagating
         return r;
     }
     
-    take( times : number )
+    take( times : number ) : Stream
     {
         const r = new Stream( this.space, this._name + ".take" );
         new Edge(
@@ -129,7 +125,7 @@ export default class Stream extends Propagating
         return r;
     }
     
-    map( f : ( value : any ) => any )
+    map( f : ( value : any ) => any ) : Stream
     {
         const r = new Stream( this.space, this._name + ".map" );
         new Edge(
@@ -140,7 +136,7 @@ export default class Stream extends Propagating
         return r
     }
     
-    delay( milliseconds : number )
+    delay( milliseconds : number ) : Stream
     {
         const operator = new Delay( milliseconds )
         
@@ -154,7 +150,7 @@ export default class Stream extends Propagating
     }
     
     /** Subscribe. Any calls to next() here won't obey to atomic updates rules.*/
-    do( f : ( value : any ) => any )
+    do( f : ( value : any ) => any ) : Stream
     {
         const r = new Stream( this.space, this._name + ".do" );
         new Edge(
@@ -164,16 +160,16 @@ export default class Stream extends Propagating
         );
         return r;
     }
-    on( ... args : Parameters<Stream['do']> ) {
+    on( ... args : Parameters<Stream['do']> ) : Stream {
         return this.do( ... args )
     }
-    subscribe( target : Stream | string | ( ( value : any ) => any ) ) {
+    subscribe( target : Stream | string | ( ( value : any ) => any ) ) : Stream {
         if ( typeof target === 'function' )
             return this.on( target as ( ( value : any ) => any ) )
         return this.to( target as ( Stream | string ) )
     }
     
-    pair()
+    pair() : Stream
     {
         const r = new Stream( this.space, this._name + ".pair" )
         new Edge(
@@ -185,7 +181,7 @@ export default class Stream extends Propagating
     }
     pairwise( ... args : Parameters<Stream['pair']> ) { return this.pair.apply( this, args ) }
     
-    changed( f ?: ( prev_v : any, new_v : any ) => boolean )
+    changed( f ?: ( prev_v : any, new_v : any ) => boolean ) : Stream
     {
         const r = new Stream( this.space, this._name + ".changed" );
         new Edge(
@@ -198,14 +194,15 @@ export default class Stream extends Propagating
     changes             ( ... args : Parameters<Stream['changed']> ) { return this.changed.apply( this, args ) }
     distinctUntilChanged( ... args : Parameters<Stream['changed']> ) { return this.changed.apply( this, args ) }
     
-    to( target : Stream | string )
+    to( target : Stream | string ) : Stream
     {
+        const s = literal_stream( target, this.space )
         new Edge(
             this,
-            literal_stream( target, this.space ),
+            s,
             new To,
         )
-        return target;
+        return s
     }
 }
 
