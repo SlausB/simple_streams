@@ -27,6 +27,12 @@ describe( 'Types extraction', () => {
             'test/streams_types/boolean_expectation.json',
         )
     })
+    it( 'function_result_argument', () => {
+        compare(
+            'test/streams_types/function_result_argument.ts',
+            'test/streams_types/function_result_argument_expectation.json',
+        )
+    })
     it( 'number', () => {
         compare(
             'test/streams_types/simple.ts',

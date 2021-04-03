@@ -44,60 +44,115 @@ function match_stream_s(
     if ( ! ts.isCallExpression( node ) )
         return false
     const ce = node as ts.CallExpression
+    if ( ce.arguments.length != 2 )
+        return false
     if ( ! ts.isPropertyAccessExpression( ce.expression ) )
         return false
-    const pae = ce.expression as ts.PropertyAccessExpression
-    if ( ! is_space_object( pae.expression, checker ) )
-        return false
-
-    //pollutes the text with quotes:
-    //const stream_name = ce.arguments[ 0 ].getText()
-    const stream_name = ce.arguments[0].text
     
-    console.log(
-        'Space detected at', place(node),
-        'arguments:'
-    )
-    for ( const arg of ce.arguments ) {
-        console.log( '    ', arg.getText() )
+    //both space.s() and stream.* must return Stream:
+    const result_type = checker.getTypeAtLocation( ce )
+    if ( ! result_type || ! result_type.symbol || ! result_type.symbol.declarations || result_type.symbol.declarations.length != 1 )
+        return false
+    if ( ! is_lib_file( find_parent( result_type.symbol.declarations[ 0 ], ts.SyntaxKind.SourceFile ) as ts.SourceFile ) )
+        return false
+    if ( ! is_stream_type( result_type, checker ) ) {
+        console.log( 'not stream type:', result_type )
+        return false
     }
 
-    //console.log( 'argument:', ce.arguments[1] )
-    const type = checker.getTypeAtLocation( ce.arguments[1] )
-    const stream_data = serialize_type( type, checker )
+    const pae = ce.expression as ts.PropertyAccessExpression
 
-    streams[ stream_name ] = stream_data
+    //space.s detected:
+    if ( is_space_object( pae.expression, checker ) )
+    {
+        //pollutes the text with quotes:
+        //const stream_name = ce.arguments[ 0 ].getText()
+        const stream_name = ce.arguments[0].text
+        
+        console.log(
+            'Space detected at', place(node),
+            'arguments:'
+        )
+        for ( const arg of ce.arguments ) {
+            console.log( '    ', arg.getText() )
+        }
 
-    return false
+        //console.log( 'CallExpression:', checker.getTypeAtLocation( ce ) )
+
+        //console.log( 'argument:', ce.arguments[1] )
+        const type = checker.getTypeAtLocation( ce.arguments[1] )
+        const stream_data = serialize_type( type, checker )
+
+        streams[ stream_name ] = stream_data
+    }
+    else if ( is_stream_object( pae.expression, checker ) ) {
+        console.log(
+            'Stream detected at', place(node)
+        )
+    }
+    else {
+        return false
+    }
+
+    return true
 }
 
 function is_space_object( e : ts.Node, checker : ts.TypeChecker ) : boolean {
     const type = checker.getTypeAtLocation( e )
-    const type_string = checker.typeToString( type )
-    if ( type_string != 'Space' )
-        return false
-    const properties = checker.getPropertiesOfType( type )
-
-    let methods_detected = 0
-    for ( const p of properties ) {
-        if ( space_properties.indexOf( p.escapedName.toString() ) )
-            ++ methods_detected
-    }
-    if ( methods_detected >= space_properties.length )
-        return true
-    
-    return false
+    return is_space_type( type, checker )
 }
-const space_properties = [
-    's',
-    'on',
-    'do',
-    'to',
-    'with',
-    'any',
-    'map',
-    'filter',
-]
+function is_space_type( type : ts.Type, checker : ts.TypeChecker ) : boolean {
+    return is_my_type(
+        type,
+        checker,
+        'Space',
+        [
+            'name',
+            'description',
+            'streams',
+            'states',
+            'stream_types',
+            'clear',
+            'apply',
+            'glue',
+            'print',
+        ]
+    )
+}
+function is_stream_object( e : ts.Node, checker : ts.TypeChecker ) : boolean {
+    const type = checker.getTypeAtLocation( e )
+    return is_stream_type( type, checker )
+}
+function is_stream_type( type : ts.Type, checker : ts.TypeChecker ) : boolean {
+    return is_my_type(
+        type,
+        checker,
+        'Stream',
+        [
+            'on',
+            'do',
+            'to',
+            'with',
+            'any',
+            'map',
+            'filter',
+        ]
+    )
+}
+function is_my_type( type : ts.Type, checker : ts.TypeChecker, name : string, required : string[] ) {
+    const type_string = checker.typeToString( type )
+    if ( type_string != name )
+        return false
+    
+    const properties = checker.getPropertiesOfType( type ).map( p => p.escapedName.toString() )
+
+    for ( const p of required ) {
+        if ( properties.indexOf( p ) < 0 )
+            return false
+    }
+    
+    return true
+}
 
 function serialize_type(
     type : ts.Type,
