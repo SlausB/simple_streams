@@ -44,8 +44,6 @@ function match_stream_s(
     if ( ! ts.isCallExpression( node ) )
         return false
     const ce = node as ts.CallExpression
-    if ( ce.arguments.length != 2 )
-        return false
     if ( ! ts.isPropertyAccessExpression( ce.expression ) )
         return false
     
@@ -55,16 +53,21 @@ function match_stream_s(
         return false
     if ( ! is_lib_file( find_parent( result_type.symbol.declarations[ 0 ], ts.SyntaxKind.SourceFile ) as ts.SourceFile ) )
         return false
-    if ( ! is_stream_type( result_type, checker ) ) {
-        console.log( 'not stream type:', result_type )
+    if ( ! is_stream_type( result_type, checker ) )
         return false
-    }
 
     const pae = ce.expression as ts.PropertyAccessExpression
+    const field_name = ( pae.name as ts.Identifier ).escapedText
 
     //space.s detected:
     if ( is_space_object( pae.expression, checker ) )
     {
+        if ( field_name != 's' )
+            return false
+
+        if ( ce.arguments.length < 1 )
+            return false
+        
         //pollutes the text with quotes:
         //const stream_name = ce.arguments[ 0 ].getText()
         const stream_name = ce.arguments[0].text
@@ -85,10 +88,17 @@ function match_stream_s(
 
         streams[ stream_name ] = stream_data
     }
+    //stream.*() detected:
     else if ( is_stream_object( pae.expression, checker ) ) {
         console.log(
-            'Stream detected at', place(node)
+            'Stream detected at', place(node),
+            'arguments:'
         )
+        for ( const arg of ce.arguments ) {
+            console.log( '    ', arg.getText() )
+        }
+
+        console.log( 'stream method:', field_name )
     }
     else {
         return false
@@ -221,9 +231,7 @@ function place( node : ts.Node ) : string {
     return `${sourceFile.fileName} (${line + 1},${character + 1})`
 }
 function is_lib_file( file : ts.SourceFile ) : boolean {
-    return  file.fileName.includes( LIB_NAME + '/lib/args.ts' ) ||
-            file.fileName.includes( LIB_NAME + '/lib/space.ts' ) ||
-            file.fileName.includes( LIB_NAME + '/lib/stream.ts' )
+    return  file.fileName.includes( LIB_NAME + '/lib/' )
 }
 
 const LIB_NAME = 'simple_streams'
