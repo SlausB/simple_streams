@@ -35,25 +35,32 @@ const streams : { [ key : string ] : any } = {}
 function match_stream_s(
     node : ts.Node,
     checker : ts.TypeChecker,
-) : boolean {
-    if ( node.kind != ts.SyntaxKind.CallExpression )
+) : boolean
+{
+    const file = find_parent( node, ts.SyntaxKind.SourceFile ) as ts.SourceFile
+    if ( is_lib_file( file ) )
+        return false
+
+    if ( ! ts.isCallExpression( node ) )
         return false
     const ce = node as ts.CallExpression
-    if ( ce.expression.kind != ts.SyntaxKind.PropertyAccessExpression )
+    if ( ! ts.isPropertyAccessExpression( ce.expression ) )
         return false
     const pae = ce.expression as ts.PropertyAccessExpression
     if ( ! is_space_object( pae.expression, checker ) )
         return false
-    
-    /*console.log( 'Space detected!' )
-    console.log( 'arguments:' )
-    for ( const arg of ce.arguments ) {
-        console.log( '    ', arg.getText() )
-    }*/
 
     //pollutes the text with quotes:
     //const stream_name = ce.arguments[ 0 ].getText()
     const stream_name = ce.arguments[0].text
+    
+    console.log(
+        'Space detected at', place(node),
+        'arguments:'
+    )
+    for ( const arg of ce.arguments ) {
+        console.log( '    ', arg.getText() )
+    }
 
     //console.log( 'argument:', ce.arguments[1] )
     const type = checker.getTypeAtLocation( ce.arguments[1] )
@@ -82,8 +89,14 @@ function is_space_object( e : ts.Node, checker : ts.TypeChecker ) : boolean {
     return false
 }
 const space_properties = [
-    'stream',
     's',
+    'on',
+    'do',
+    'to',
+    'with',
+    'any',
+    'map',
+    'filter',
 ]
 
 function serialize_type(
@@ -96,7 +109,7 @@ function serialize_type(
     const symbol = type.getSymbol()
     if ( ! symbol ) {
         //seems like it's actually just TypeScript-provided type:
-        /*console.log( 'type', checker.typeToString( type ), 'has NO symbol', type )
+        /*console.log( 'type', checker.typeToString( type ), 'has NO symbol', type )/*
         throw new Error( 'Type MUST have a symbol' )*/
 
         //for some reason expression 42 has no symbol (making it impossible to determin it's type), has just text '42', but has flags: 256 which is TypeFlags.NumberLiteral:
@@ -140,6 +153,25 @@ function find_child( children : ts.Node[], kind : ts.SyntaxKind ) : ts.Node | un
     }
     return undefined
 }
+function find_parent( from : ts.Node, kind : ts.SyntaxKind ) : ts.Node | undefined {
+    if ( ! from.parent )
+        return undefined
+    if ( from.parent.kind == kind )
+        return from.parent
+    return find_parent( from.parent, kind )
+}
+function place( node : ts.Node ) : string {
+    const sourceFile = find_parent( node, ts.SyntaxKind.SourceFile ) as ts.SourceFile
+    let { line, character } = sourceFile.getLineAndCharacterOfPosition( node.getStart() )
+    return `${sourceFile.fileName} (${line + 1},${character + 1})`
+}
+function is_lib_file( file : ts.SourceFile ) : boolean {
+    return  file.fileName.includes( LIB_NAME + '/lib/args.ts' ) ||
+            file.fileName.includes( LIB_NAME + '/lib/space.ts' ) ||
+            file.fileName.includes( LIB_NAME + '/lib/stream.ts' )
+}
+
+const LIB_NAME = 'simple_streams'
 
 export function pretty_print( object : any, prefix : any = undefined ) {
     if ( prefix )
