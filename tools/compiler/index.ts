@@ -1,5 +1,76 @@
 import ts from 'typescript'
 import fs from 'fs'
+import deepEqual from 'deep-equal'
+
+/** Final type data ready to be presented, serialized (stored to file/database or sent over network) and so on */
+type PlainType = { [ key : string ] : any } | string
+
+enum TypeSource {
+    SPECIFIC,
+    INFERRED,
+}
+class StreamType {
+    plain : PlainType
+    source : TypeSource
+    /** If source==TypeSource.SPECIFIC it's space.s() call; otherwise it's stream.*() call */
+    node : ts.Node
+
+    constructor( plain : PlainType, source : TypeSource, node : ts.Node ) {
+        this.plain = plain
+        this.source = source
+        this.node = node
+    }
+}
+class Stream {
+    name : string
+    /** Universal type (only string|number|boolean and [] of those for now). Multiple by places they are defined. */
+    types : StreamType[] = []
+    parents : Edge[] = []
+    children : Edge[] = []
+
+    constructor( name : string, node : ts.Node ) {
+        this.name = name
+    }
+}
+enum EdgeKind {
+    TO,
+    ON,
+    MAP,
+    FILTER,
+    WITH,
+    ANY,
+    DELAY,
+}
+class Edge {
+    source : Stream
+    target : Stream
+    kind : EdgeKind
+    /** if parent does not propagate to child (dependence from bottom to top only) */
+    weak = false
+
+    constructor( source : Stream, target : Stream, kind : EdgeKind ) {
+        this.source = source
+        this.target = target
+        this.kind = kind
+    }
+}
+class Build {
+    status : 'pending' | 'fail' | 'success' = 'pending'
+    errors : string[] = []
+    streams = new Map< string, Stream >()
+
+    /** Returns already existing Stream or creates new one */
+    s( name : string, node : ts.Node ) : Stream {
+        let stream = build.streams.get( name )
+        if ( stream )
+            return stream
+        stream = new Stream( name, node )
+        build.streams.set( name, stream )
+        return stream
+    }
+}
+
+const build = new Build
 
 export default function stream_type_safety_as_transformer<T extends ts.Node>(
     program : ts.Program,
@@ -14,12 +85,13 @@ export default function stream_type_safety_as_transformer<T extends ts.Node>(
         }
     }
     function visit( node: ts.Node ) {
-        match_stream_s( node, checker )
+        match_stream( node, checker )
         ts.forEachChild( node, visit )
     }
 
-    //pretty_print( streams, 'streams:' )
-    fs.writeFileSync( 'streams_types.json', JSON.stringify( streams ) )
+    propagate_types()
+
+    assemble()
 
     //no need to make any AST transformations: just statically analyze streams types:
     return context => {
@@ -30,9 +102,7 @@ export default function stream_type_safety_as_transformer<T extends ts.Node>(
     };
 }
 
-const streams : { [ key : string ] : any } = {}
-
-function match_stream_s(
+function match_stream(
     node : ts.Node,
     checker : ts.TypeChecker,
 ) : boolean
@@ -69,7 +139,7 @@ function match_stream_s(
         
         //pollutes the text with quotes:
         //const stream_name = ce.arguments[ 0 ].getText()
-        const stream_name = ce.arguments[0].text
+        const stream_name : string = ce.arguments[0].text as string
         
         console.log(
             'Space detected at', place(node),
@@ -81,11 +151,18 @@ function match_stream_s(
 
         //console.log( 'CallExpression:', checker.getTypeAtLocation( ce ) )
 
-        //console.log( 'argument:', ce.arguments[1] )
-        const type = checker.getTypeAtLocation( ce.arguments[1] )
-        const stream_data = serialize_type( type, checker )
-
-        streams[ stream_name ] = stream_data
+        if ( ce.arguments.length >= 1 ) {
+            //console.log( 'argument:', ce.arguments[1] )
+            const type = checker.getTypeAtLocation( ce.arguments[1] )
+            const stream = build.s( stream_name, node )
+            stream.types.push(
+                new StreamType(
+                    serialize_type( type, checker ),
+                    TypeSource.SPECIFIC,
+                    node
+                )
+            )
+        }
     }
     //stream.*() detected:
     else if ( is_stream_object( pae.expression, checker ) ) {
@@ -98,6 +175,7 @@ function match_stream_s(
         }
 
         console.log( 'stream method:', field_name )
+
     }
     else {
         return false
@@ -167,7 +245,7 @@ function serialize_type(
     type : ts.Type,
     checker : ts.TypeChecker,
     depth = 0,
-) : { [ key : string ] : any } | string
+) : PlainType
 {
     //console.log( '    '.repeat(depth) + 'type:', type )
     const symbol = type.getSymbol()
@@ -232,12 +310,76 @@ function place( node : ts.Node ) : string {
 function is_lib_file( file : ts.SourceFile ) : boolean {
     return  file.fileName.includes( LIB_NAME + '/lib/' )
 }
-
 const LIB_NAME = 'simple_streams'
 
 export function pretty_print( object : any, prefix : any = undefined ) {
     if ( prefix )
         console.log( prefix )
     console.dir( object, {depth: null, colors: true})
+}
+
+function propagate_types() {
+    //TODO
+}
+
+function assemble()
+{
+    for ( const [ name, stream ] of build.streams ) {
+        //verifying that specified types are equal between each other:
+        for ( const t1i in stream.types ) {
+        for ( const t2i in stream.types ) {
+            if ( t1i == t2i )
+                continue
+            verify_types_fitness(
+                stream.types[ t1i ],
+                stream.types[ t2i ],
+                build
+            )
+        } }
+
+        //verifying that at least one type specified for every stream:
+        if ( stream.types.length <= 0 ) {
+            build.errors.push( 'stream ' + stream.name + ' has no types at all' )
+        }
+    }
+
+    if ( build.errors.length <= 0 )
+        build.status = 'success'
+
+    //printing
+    const result : {
+        status : typeof build.status
+        errors : typeof build.errors
+        types : { [ key : string ] : any }
+        graph : { [ key : string ] : { kind : string, weak : boolean, child : string }[] }
+    } = {
+        status : build.status,
+        errors : build.errors,
+        types : {},
+        graph : {},
+    }
+    for ( const [ name, stream ] of build.streams ) {
+        if ( stream.types.length > 0 )
+            result.types[ name ] = stream.types[ 0 ].plain
+        
+        for ( const child of stream.children ) {
+            const c = {
+                kind : EdgeKind[ child.kind ],
+                weak : child.weak,
+                child : child.target.name,
+            }
+            if ( result.graph[ name ] )
+                result.graph[ name ].push( c )
+            else
+                result.graph[ name ] = [ c ]
+        }
+    }
+    fs.writeFileSync( 'streams_types.json', JSON.stringify( result ) )
+}
+
+function verify_types_fitness( t1 : StreamType, t2 : StreamType, build : Build ) : void {
+    if ( ! deepEqual( t1.plain, t2.plain ) ) {
+        build.errors.push( 'Stream type ' + JSON.stringify( t1.plain ) + ' at ' + place(t1.node) + ' from type ' + JSON.stringify( t2.plain ) + ' at ' + place(t2.node) )
+    }
 }
 

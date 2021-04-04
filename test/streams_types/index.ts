@@ -45,4 +45,10 @@ describe( 'Types extraction', () => {
             'test/streams_types/simple_expectation.json',
         )
     })
+    it( 'array', () => {
+        compare(
+            'test/streams_types/array.ts',
+            'test/streams_types/array_expectation.json',
+        )
+    })
 })
