@@ -33,6 +33,7 @@ class Stream {
     }
 }
 enum EdgeKind {
+    UNDEFINED,
     TO,
     ON,
     MAP,
@@ -40,6 +41,16 @@ enum EdgeKind {
     WITH,
     ANY,
     DELAY,
+}
+const KIND_NAME : { [ key in EdgeKind ] : string } = {
+    [ EdgeKind.UNDEFINED ] : 'UNDEFINED',
+    [ EdgeKind.TO ]        : 'to'    ,
+    [ EdgeKind.ON ]        : 'on'    ,
+    [ EdgeKind.MAP ]       : 'map'   ,
+    [ EdgeKind.FILTER ]    : 'filter',
+    [ EdgeKind.WITH ]      : 'with'  ,
+    [ EdgeKind.ANY ]       : 'any'   ,
+    [ EdgeKind.DELAY ]     : 'delay' ,
 }
 class Edge {
     source : Stream
@@ -52,6 +63,9 @@ class Edge {
         this.source = source
         this.target = target
         this.kind = kind
+
+        source.children.push( this )
+        target.parents .push( this )
     }
 }
 class Build {
@@ -105,25 +119,23 @@ export default function stream_type_safety_as_transformer<T extends ts.Node>(
 function match_stream(
     node : ts.Node,
     checker : ts.TypeChecker,
-) : boolean
+) : Stream | undefined
 {
     if ( is_lib_file( find_parent( node, ts.SyntaxKind.SourceFile ) as ts.SourceFile ) )
-        return false
+        return undefined
 
     if ( ! ts.isCallExpression( node ) )
-        return false
+        return undefined
     const ce = node as ts.CallExpression
-    if ( ! ts.isPropertyAccessExpression( ce.expression ) )
-        return false
     
     //both space.s() and stream.* must return Stream:
     const result_type = checker.getTypeAtLocation( ce )
     if ( ! result_type || ! result_type.symbol || ! result_type.symbol.declarations || result_type.symbol.declarations.length != 1 )
-        return false
+        return undefined
     if ( ! is_lib_file( find_parent( result_type.symbol.declarations[ 0 ], ts.SyntaxKind.SourceFile ) as ts.SourceFile ) )
-        return false
+        return undefined
     if ( ! is_stream_type( result_type, checker ) )
-        return false
+        return undefined
 
     const pae = ce.expression as ts.PropertyAccessExpression
     const field_name = ( pae.name as ts.Identifier ).escapedText
@@ -132,14 +144,23 @@ function match_stream(
     if ( is_space_object( pae.expression, checker ) )
     {
         if ( field_name != 's' )
-            return false
+            return undefined
 
         if ( ce.arguments.length < 1 )
-            return false
+            return undefined
         
-        //pollutes the text with quotes:
+        /*//pollutes the text with quotes:
         //const stream_name = ce.arguments[ 0 ].getText()
-        const stream_name : string = ce.arguments[0].text as string
+        const stream_name : string = ce.arguments[0].text as string*/
+        const name = ce.arguments[ 0 ]
+        let stream_name : string
+        if ( ts.isStringLiteral( name ) ) {
+            const literal = name as ts.StringLiteral
+            stream_name = literal.text
+        }
+        else {
+            return undefined
+        }
         
         console.log(
             'Space detected at', place(node),
@@ -152,17 +173,21 @@ function match_stream(
         //console.log( 'CallExpression:', checker.getTypeAtLocation( ce ) )
 
         if ( ce.arguments.length >= 1 ) {
-            //console.log( 'argument:', ce.arguments[1] )
-            const type = checker.getTypeAtLocation( ce.arguments[1] )
             const stream = build.s( stream_name, node )
-            stream.types.push(
-                new StreamType(
-                    serialize_type( type, checker ),
-                    TypeSource.SPECIFIC,
-                    node
+            if ( ce.arguments.length > 1 ) {
+                //console.log( 'argument:', ce.arguments[1] )
+                const type = checker.getTypeAtLocation( ce.arguments[1] )
+                stream.types.push(
+                    new StreamType(
+                        serialize_type( type, checker ),
+                        TypeSource.SPECIFIC,
+                        node
+                    )
                 )
-            )
+            }
+            return stream
         }
+        return undefined
     }
     //stream.*() detected:
     else if ( is_stream_object( pae.expression, checker ) ) {
@@ -174,14 +199,98 @@ function match_stream(
             console.log( '    ', arg.getText() )
         }
 
+        const source_stream = match_stream( pae.expression, checker )
+        if ( ! source_stream )
+            throw 'left hand node of stream property expression MUST be a Stream'
+
         console.log( 'stream method:', field_name )
 
-    }
-    else {
-        return false
+        const kind = operator_kind( field_name.toString() )
+        if ( kind == EdgeKind.UNDEFINED ) {
+            build.errors.push( `Stream method "${field_name}" at ${place(node)} is of undefined type` )
+            return undefined
+        }
+
+        //extracting Stream | string | params from arguments (their semantics will depend on EdgeKind):
+
+        const stream_args : Stream[] = []
+        let number_arg : number | undefined = undefined
+        let callback_arg : Function | undefined = undefined
+
+        for ( const arg of ce.arguments ) {
+            if ( ts.isStringLiteral( arg ) ) {
+                stream_args.push( build.s( ( arg as ts.StringLiteral ).text, arg ) )
+                continue
+            }
+
+            if ( ts.isNumericLiteral( arg ) ) {
+                number_arg = parseFloat( ( arg as ts.NumericLiteral ).text )
+                continue
+            }
+
+            if ( ts.isFunctionLike( arg ) ) {
+                //TODO:
+                console.log( 'CALLBACK:', arg )
+                continue
+            }
+
+            //TODO: could be space.s( 'some_stream' ) or some other stream ...
+
+            const stream_arg = match_stream( arg, checker )
+            if ( stream_arg )
+                stream_args.push( stream_arg )
+        }
+
+        const op_name : string = KIND_NAME[ kind ]
+        const target_stream = build.s( source_stream.name + '.' + op_name, ce )
+
+        const edge = new Edge( source_stream, target_stream, kind )
+
+        const args_edges : Edge[] = []
+        for ( const stream_arg of stream_args ) {
+            const arg_edge = new Edge( stream_arg, target_stream, kind )
+            args_edges.push( arg_edge )
+        }
+
+        switch ( kind ) {
+            case EdgeKind.WITH:
+                for ( const arg_edge of args_edges )
+                    arg_edge.weak = true
+                break
+        }
     }
 
-    return true
+    return undefined
+}
+
+function operator_kind( field_name : string ) : EdgeKind {
+    switch ( field_name ) {
+        case 'to':
+            return EdgeKind.TO
+        
+        case 'on':
+        case 'do':
+        case 'subscribe':
+            return EdgeKind.ON
+        
+        case 'map':
+            return EdgeKind.MAP
+        
+        case 'filter':
+            return EdgeKind.FILTER
+        
+        case 'with':
+        case 'withLatestFrom':
+            return EdgeKind.WITH
+        
+        case 'any':
+        case 'combineLatest':
+            return EdgeKind.ANY
+        
+        case 'delay':
+            return EdgeKind.DELAY
+    }
+    return EdgeKind.UNDEFINED
 }
 
 function is_space_object( e : ts.Node, checker : ts.TypeChecker ) : boolean {
@@ -374,7 +483,7 @@ function assemble()
                 result.graph[ name ] = [ c ]
         }
     }
-    fs.writeFileSync( 'streams_types.json', JSON.stringify( result ) )
+    fs.writeFileSync( 'streams_types.json', JSON.stringify( result, null, 2 ) )
 }
 
 function verify_types_fitness( t1 : StreamType, t2 : StreamType, build : Build ) : void {

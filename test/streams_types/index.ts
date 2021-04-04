@@ -51,4 +51,10 @@ describe( 'Types extraction', () => {
             'test/streams_types/array_expectation.json',
         )
     })
+    it( 'embedded_stream', () => {
+        compare(
+            'test/streams_types/embedded_stream.ts',
+            'test/streams_types/embedded_stream_expectation.json',
+        )
+    })
 })
