@@ -242,6 +242,14 @@ function match_stream(
         }
 
         const op_name : string = KIND_NAME[ kind ]
+
+        //'to' is the only operator that doesn't spawn new stream:
+        if ( kind == EdgeKind.TO ) {
+            new Edge( source_stream, stream_args[ 0 ], kind )
+            return stream_args[ 0 ]
+        }
+
+        //spawning the operator's stream:
         const target_stream = build.s( source_stream.name + '.' + op_name, ce )
 
         const edge = new Edge( source_stream, target_stream, kind )
@@ -448,7 +456,7 @@ function assemble()
 
         //verifying that at least one type specified for every stream:
         if ( stream.types.length <= 0 ) {
-            build.errors.push( 'stream ' + stream.name + ' has no types at all' )
+            build.errors.push( `stream "${stream.name}" has no types at all` )
         }
     }
 
