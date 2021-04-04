@@ -43,7 +43,7 @@ export default class Propagating
                 for ( const childEdge of node.children )
                 {
                     //if parent does not propagate to child (dependence from bottom to top only):
-                    if ( childEdge.down )
+                    if ( childEdge.weak )
                         continue;
                     
                     if ( resolved( childEdge.child ) )
@@ -95,7 +95,7 @@ export default class Propagating
     {
         for ( const childEdge of this.children )
         {
-            if ( childEdge.down )
+            if ( childEdge.weak )
                 continue;
             if ( ! resolved( childEdge.child ) )
                 return false;
@@ -158,7 +158,7 @@ function pend( node : Propagating )
     for ( const childEdge of node.children )
     {
         //if parent does not propagate to child (dependence from bottom to top only):
-        if ( childEdge.down )
+        if ( childEdge.weak )
             continue;
         
         const i = L.indexOf( childEdge.child );

@@ -29,7 +29,7 @@ export default function( space : Space, ... params : any[] )
             r,
             operator
         );
-        R.down = true;
+        R.weak = true;
     }
     return r;
 }

@@ -12,7 +12,7 @@ export default class Edge
     child : Stream
     operator : Operator
     /** if parent does not propagate to child (dependence from bottom to top only) */
-    down = false
+    weak = false
     /** true if child had the same rank when parent approached it */
     pending = false
 
