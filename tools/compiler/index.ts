@@ -29,7 +29,7 @@ class Stream {
     name : string
     parents : Edge[] = []
     children : Edge[] = []
-    /** Multiple by places they are defined. User-defined types are always stored in inputs. Lib-defined types (through operators) have type declarations based on callback params or operator semantics: callback params stored in inputs while return types stored in outputs. */
+    /** Multiple by places types are defined. User-defined types are always stored in inputs. Lib-defined types (through operators) have type declarations based on callback params or operator semantics: callback params stored in inputs while return types stored in outputs. */
     inputs : TypeInfo[] = []
     outputs : TypeInfo[] = []
 
@@ -539,6 +539,23 @@ export function pretty_print( object : any, prefix : any = undefined ) {
 }
 
 function propagate_types() {
+    const pending : Stream[] = []
+    for ( const [ name, stream ] of build.streams )
+        pending.push( stream )
+    
+    while ( pending.length > 0 ) {
+        const stream = pending.pop()!
+
+        //outputs are always pushed to children as is:
+        for ( const output of stream.outputs ) {
+        for ( const child of stream.children ) {
+            const s = child.target
+            if ( type_already_represented( output, s ) )
+                continue
+            s.inputs.push( output )
+            pending.push( s )
+        } }
+    }
     //TODO
 }
 
@@ -598,8 +615,18 @@ function assemble()
 }
 
 function verify_types_fitness( t1 : TypeInfo, t2 : TypeInfo, build : Build ) : void {
-    if ( ! deepEqual( t1.plain, t2.plain ) ) {
+    if ( ! are_types_equal( t1, t2 ) ) {
         error( 'Stream type ' + JSON.stringify( t1.plain ) + ' at ' + place(t1.node) + ' from type ' + JSON.stringify( t2.plain ) + ' at ' + place(t2.node) )
     }
+}
+function are_types_equal( t1 : TypeInfo, t2 : TypeInfo ) : boolean {
+    return deepEqual( t1.plain, t2.plain )
+}
+function type_already_represented( t : TypeInfo, s : Stream ) : boolean {
+    for ( const t2 of s.inputs ) {
+        if ( are_types_equal( t, t2 ) )
+            return true
+    }
+    return false
 }
 
