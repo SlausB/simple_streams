@@ -3,13 +3,17 @@ import fs from 'fs'
 import deepEqual from 'deep-equal'
 
 /** Final type data ready to be presented, serialized (stored to file/database or sent over network) and so on */
-type PlainType = { [ key : string ] : any } | string
+type PlainType = { [ key : string ] : any } | any[] | string
 
 enum TypeSource {
-    SPECIFIC,
-    INFERRED,
+    SPECIFIC,       /** Explicitly specified by user on Stream creation with space.s() */
+    INFERRED,       /** Inferred through propagation */
+    TRANSFORMED,    /** Transformed with stream operator */
+    CALLBACK_INPUT, /** Arguments of user provided callback to stream operator */
+    CALLBACK_OUTPUT,/** Return type of user provided callback to stream operator */
 }
-class StreamType {
+/** Universal type (only string|number|boolean and [] of those for now). */
+class TypeInfo {
     plain : PlainType
     source : TypeSource
     /** If source==TypeSource.SPECIFIC it's space.s() call; otherwise it's stream.*() call */
@@ -23,10 +27,11 @@ class StreamType {
 }
 class Stream {
     name : string
-    /** Universal type (only string|number|boolean and [] of those for now). Multiple by places they are defined. */
-    types : StreamType[] = []
     parents : Edge[] = []
     children : Edge[] = []
+    /** Multiple by places they are defined. User-defined types are always stored in inputs. Lib-defined types (through operators) have type declarations based on callback params or operator semantics: callback params stored in inputs while return types stored in outputs. */
+    inputs : TypeInfo[] = []
+    outputs : TypeInfo[] = []
 
     constructor( name : string, node : ts.Node ) {
         this.name = name
@@ -182,8 +187,8 @@ function match_stream(
             if ( ce.arguments.length > 1 ) {
                 //console.log( 'argument:', ce.arguments[1] )
                 const type = checker.getTypeAtLocation( ce.arguments[1] )
-                stream.types.push(
-                    new StreamType(
+                stream.inputs.push(
+                    new TypeInfo(
                         serialize_type( type, checker ),
                         TypeSource.SPECIFIC,
                         node
@@ -222,7 +227,9 @@ function match_stream(
 
         const stream_args : Stream[] = []
         let number_arg : number | undefined = undefined
-        let callback_type : ReturnType< typeof serialize_type > | undefined = undefined
+        let callback_arg : ts.Node | undefined = undefined
+        let callback_params : ts.Symbol[] | undefined = undefined
+        let callback_return : ReturnType< typeof serialize_type > | undefined = undefined
 
         for ( const arg of ce.arguments ) {
             if ( ts.isStringLiteral( arg ) ) {
@@ -236,6 +243,7 @@ function match_stream(
             }
 
             if ( ts.isFunctionLike( arg ) ) {
+                callback_arg = arg
                 const ct = checker.getTypeAtLocation( arg )
                 const signatures = ct.getCallSignatures()
                 if ( ! signatures || signatures.length <= 0 ) {
@@ -243,9 +251,14 @@ function match_stream(
                     continue
                 }
                 const sig = signatures[ 0 ]
+
+                const callback_params = sig.getParameters()
+                if ( ! callback_params ) {
+                    error( `Stream arg callback at ${place(arg)} has no parameters specified` )
+                }
+
                 const return_type = sig.getReturnType()
-                callback_type = serialize_type( return_type, checker )
-                console.log( 'CALLBACK:', callback_type )
+                callback_return = serialize_type( return_type, checker )
                 continue
             }
 
@@ -256,8 +269,6 @@ function match_stream(
                 stream_args.push( stream_arg )
         }
 
-        const op_name : string = KIND_NAME[ kind ]
-
         //'to' is the only operator that doesn't spawn new stream:
         if ( kind == EdgeKind.TO ) {
             new Edge( source_stream, stream_args[ 0 ], kind )
@@ -265,7 +276,7 @@ function match_stream(
         }
 
         //spawning the operator's stream:
-        const target_stream = build.s( source_stream.name + '.' + op_name, ce )
+        const target_stream = build.s( source_stream.name + '.' + KIND_NAME[ kind ], ce )
 
         const edge = new Edge( source_stream, target_stream, kind )
 
@@ -276,9 +287,47 @@ function match_stream(
         }
 
         switch ( kind ) {
+            case EdgeKind.MAP:
+                if ( ! callback_arg ) {
+                    error( `map operator at ${place(node)} callback arg was NOT provided` )
+                    break
+                }
+                if ( ! callback_params )
+                    break
+                if ( callback_params!.length != 1 ) {
+                    error( `map operator callback at ${place(callback_arg)} param must have exactly 1 argument` )
+                    break
+                }
+                target_stream.inputs.push(
+                    new TypeInfo(
+                        serialize_type( checker.getTypeAtLocation( callback_params![0].valueDeclaration ), checker ),
+                        TypeSource.CALLBACK_INPUT,
+                        callback_arg,
+                    )
+                )
+                target_stream.outputs.push(
+                    new TypeInfo(
+                        callback_return as PlainType,
+                        TypeSource.CALLBACK_OUTPUT,
+                        callback_arg,
+                    )
+                )
+                break
+
             case EdgeKind.WITH:
                 for ( const arg_edge of args_edges )
                     arg_edge.weak = true
+            case EdgeKind.ANY:
+                process_callback_operator(
+                    target_stream,
+                    checker,
+                    callback_arg,
+                    callback_params,
+                    callback_return as PlainType,
+                )
+                break
+            
+            case EdgeKind.DELAY:
                 break
         }
 
@@ -287,6 +336,38 @@ function match_stream(
 
     deeper( node, checker )
     return undefined
+}
+
+function process_callback_operator(
+    target : Stream,
+    checker : ts.TypeChecker,
+    callback : ts.Node | undefined,
+    params : ts.Symbol[] | undefined,
+    return_type : PlainType,
+) {
+    if ( callback ) {
+        const types : PlainType[] = []
+        for ( const param of params! ) {
+            types.push( serialize_type( checker.getTypeAtLocation( param.valueDeclaration ), checker ) )
+        }
+        target.inputs.push(
+            new TypeInfo(
+                types,
+                TypeSource.CALLBACK_INPUT,
+                callback,
+            )
+        )
+        target.outputs.push(
+            new TypeInfo(
+                return_type as PlainType,
+                TypeSource.CALLBACK_OUTPUT,
+                callback,
+            )
+        )
+    }
+    else {
+        //otherwise must infer into array of all input streams types at propagation stage ...
+    }
 }
 
 function operator_kind( field_name : string ) : EdgeKind {
@@ -465,19 +546,19 @@ function assemble()
 {
     for ( const [ name, stream ] of build.streams ) {
         //verifying that specified types are equal between each other:
-        for ( const t1i in stream.types ) {
-        for ( const t2i in stream.types ) {
+        for ( const t1i in stream.inputs ) {
+        for ( const t2i in stream.inputs ) {
             if ( t1i == t2i )
                 continue
             verify_types_fitness(
-                stream.types[ t1i ],
-                stream.types[ t2i ],
+                stream.inputs[ t1i ],
+                stream.inputs[ t2i ],
                 build
             )
         } }
 
         //verifying that at least one type specified for every stream:
-        if ( stream.types.length <= 0 ) {
+        if ( stream.inputs.length <= 0 ) {
             error( `stream "${stream.name}" has no types at all` )
         }
     }
@@ -498,8 +579,8 @@ function assemble()
         graph : {},
     }
     for ( const [ name, stream ] of build.streams ) {
-        if ( stream.types.length > 0 )
-            result.types[ name ] = stream.types[ 0 ].plain
+        if ( stream.inputs.length > 0 )
+            result.types[ name ] = stream.inputs[ 0 ].plain
         
         for ( const child of stream.children ) {
             const c = {
@@ -516,7 +597,7 @@ function assemble()
     fs.writeFileSync( 'streams_types.json', JSON.stringify( result, null, 2 ) )
 }
 
-function verify_types_fitness( t1 : StreamType, t2 : StreamType, build : Build ) : void {
+function verify_types_fitness( t1 : TypeInfo, t2 : TypeInfo, build : Build ) : void {
     if ( ! deepEqual( t1.plain, t2.plain ) ) {
         error( 'Stream type ' + JSON.stringify( t1.plain ) + ' at ' + place(t1.node) + ' from type ' + JSON.stringify( t2.plain ) + ' at ' + place(t2.node) )
     }
