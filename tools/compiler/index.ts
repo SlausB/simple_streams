@@ -98,15 +98,9 @@ export default function stream_type_safety_as_transformer<T extends ts.Node>(
     const checker = program.getTypeChecker()
 
     for ( const sourceFile of program.getSourceFiles() ) {
-        if ( ! sourceFile.isDeclarationFile ) {
-            ts.forEachChild( sourceFile, visit );
-        }
-    }
-    function visit( node: ts.Node ) {
-        const matched = match_stream( node, checker )
-        if ( matched )
-            return
-        ts.forEachChild( node, visit )
+        if ( sourceFile.isDeclarationFile )
+            continue
+        deeper( sourceFile, checker )
     }
 
     propagate_types()
@@ -115,11 +109,12 @@ export default function stream_type_safety_as_transformer<T extends ts.Node>(
 
     //no need to make any AST transformations: just statically analyze streams types:
     return context => {
-        const visit: ts.Visitor = node => {
-            return ts.visitEachChild( node, child => visit( child ), context )
-        };
-        return node => ts.visitNode(node, visit);
-    };
+        return node => node
+    }
+}
+
+function deeper( from : ts.Node, checker : ts.TypeChecker ) {
+    ts.forEachChild( from, ( node : ts.Node ) => match_stream( node, checker ) )
 }
 
 function match_stream(
@@ -130,18 +125,17 @@ function match_stream(
     if ( is_lib_file( find_parent( node, ts.SyntaxKind.SourceFile ) as ts.SourceFile ) )
         return undefined
 
-    if ( ! ts.isCallExpression( node ) )
+    if ( ! ts.isCallExpression( node ) ) {
+        deeper( node, checker )
         return undefined
+    }
     const ce = node as ts.CallExpression
     
     //both space.s() and stream.* must return Stream:
-    const result_type = checker.getTypeAtLocation( ce )
-    if ( ! result_type || ! result_type.symbol || ! result_type.symbol.declarations || result_type.symbol.declarations.length != 1 )
+    if ( ! is_stream_type( checker.getTypeAtLocation( ce ), checker ) ) {
+        deeper( node, checker )
         return undefined
-    if ( ! is_lib_file( find_parent( result_type.symbol.declarations[ 0 ], ts.SyntaxKind.SourceFile ) as ts.SourceFile ) )
-        return undefined
-    if ( ! is_stream_type( result_type, checker ) )
-        return undefined
+    }
 
     const pae = ce.expression as ts.PropertyAccessExpression
     const field_name = ( pae.name as ts.Identifier ).escapedText
@@ -149,11 +143,15 @@ function match_stream(
     //space.s detected:
     if ( is_space_object( pae.expression, checker ) )
     {
-        if ( field_name != 's' )
+        if ( field_name != 's' ) {
+            deeper( node, checker )
             return undefined
+        }
 
-        if ( ce.arguments.length < 1 )
+        if ( ce.arguments.length < 1 ) {
+            deeper( node, checker )
             return undefined
+        }
         
         /*//pollutes the text with quotes:
         //const stream_name = ce.arguments[ 0 ].getText()
@@ -165,6 +163,7 @@ function match_stream(
             stream_name = literal.text
         }
         else {
+            deeper( node, checker )
             return undefined
         }
         
@@ -193,6 +192,8 @@ function match_stream(
             }
             return stream
         }
+
+        deeper( node, checker )
         return undefined
     }
     //stream.*() detected:
@@ -284,6 +285,7 @@ function match_stream(
         return target_stream
     }
 
+    deeper( node, checker )
     return undefined
 }
 
@@ -344,6 +346,10 @@ function is_stream_object( e : ts.Node, checker : ts.TypeChecker ) : boolean {
     return is_stream_type( type, checker )
 }
 function is_stream_type( type : ts.Type, checker : ts.TypeChecker ) : boolean {
+    if ( ! type || ! type.symbol || ! type.symbol.declarations || type.symbol.declarations.length != 1 )
+        return false
+    if ( ! is_lib_file( find_parent( type.symbol.declarations[ 0 ], ts.SyntaxKind.SourceFile ) as ts.SourceFile ) )
+        return false
     return is_my_type(
         type,
         checker,
