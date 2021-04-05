@@ -33,6 +33,12 @@ describe( 'Types extraction', () => {
             'test/streams_types/stream_expectation.json',
         )
     })
+    it( 'literal_stream', () => {
+        compare(
+            'test/streams_types/literal_stream.ts',
+            'test/streams_types/stream_expectation.json',
+        )
+    })
     it( 'function_result_argument', () => {
         compare(
             'test/streams_types/function_result_argument.ts',

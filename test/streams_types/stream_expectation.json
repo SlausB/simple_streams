@@ -1,5 +1,17 @@
-
 {
-    "my_stream": "boolean",
-    "another_stream": "boolean"
-}
+    "status": "success",
+    "errors": [],
+    "types": {
+      "my_stream": "boolean",
+      "another_stream": "boolean"
+    },
+    "graph": {
+      "my_stream": [
+        {
+          "kind": "TO",
+          "weak": false,
+          "child": "another_stream"
+        }
+      ]
+    }
+  }

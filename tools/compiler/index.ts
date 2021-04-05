@@ -85,6 +85,10 @@ class Build {
 }
 
 const build = new Build
+function error( msg : string ) {
+    console.error( msg )
+    build.errors.push( msg )
+}
 
 export default function stream_type_safety_as_transformer<T extends ts.Node>(
     program : ts.Program,
@@ -99,7 +103,9 @@ export default function stream_type_safety_as_transformer<T extends ts.Node>(
         }
     }
     function visit( node: ts.Node ) {
-        match_stream( node, checker )
+        const matched = match_stream( node, checker )
+        if ( matched )
+            return
         ts.forEachChild( node, visit )
     }
 
@@ -207,7 +213,7 @@ function match_stream(
 
         const kind = operator_kind( field_name.toString() )
         if ( kind == EdgeKind.UNDEFINED ) {
-            build.errors.push( `Stream method "${field_name}" at ${place(node)} is of undefined type` )
+            error( `Stream method "${field_name}" at ${place(node)} is of undefined type` )
             return undefined
         }
 
@@ -215,7 +221,7 @@ function match_stream(
 
         const stream_args : Stream[] = []
         let number_arg : number | undefined = undefined
-        let callback_arg : Function | undefined = undefined
+        let callback_type : ReturnType< typeof serialize_type > | undefined = undefined
 
         for ( const arg of ce.arguments ) {
             if ( ts.isStringLiteral( arg ) ) {
@@ -229,8 +235,16 @@ function match_stream(
             }
 
             if ( ts.isFunctionLike( arg ) ) {
-                //TODO:
-                console.log( 'CALLBACK:', arg )
+                const ct = checker.getTypeAtLocation( arg )
+                const signatures = ct.getCallSignatures()
+                if ( ! signatures || signatures.length <= 0 ) {
+                    error( `Stream arg callback at ${place(arg)} has no type signature` )
+                    continue
+                }
+                const sig = signatures[ 0 ]
+                const return_type = sig.getReturnType()
+                callback_type = serialize_type( return_type, checker )
+                console.log( 'CALLBACK:', callback_type )
                 continue
             }
 
@@ -266,6 +280,8 @@ function match_stream(
                     arg_edge.weak = true
                 break
         }
+
+        return target_stream
     }
 
     return undefined
@@ -456,7 +472,7 @@ function assemble()
 
         //verifying that at least one type specified for every stream:
         if ( stream.types.length <= 0 ) {
-            build.errors.push( `stream "${stream.name}" has no types at all` )
+            error( `stream "${stream.name}" has no types at all` )
         }
     }
 
@@ -496,7 +512,7 @@ function assemble()
 
 function verify_types_fitness( t1 : StreamType, t2 : StreamType, build : Build ) : void {
     if ( ! deepEqual( t1.plain, t2.plain ) ) {
-        build.errors.push( 'Stream type ' + JSON.stringify( t1.plain ) + ' at ' + place(t1.node) + ' from type ' + JSON.stringify( t2.plain ) + ' at ' + place(t2.node) )
+        error( 'Stream type ' + JSON.stringify( t1.plain ) + ' at ' + place(t1.node) + ' from type ' + JSON.stringify( t2.plain ) + ' at ' + place(t2.node) )
     }
 }
 
