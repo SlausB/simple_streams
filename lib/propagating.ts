@@ -134,7 +134,7 @@ function apply( edge : Edge )
         {
             return edge.operator.apply( edge );
         }
-        catch ( e )
+        catch ( e : any )
         {
             console.error( "apply() failed:", e.message, e );
             return false;
